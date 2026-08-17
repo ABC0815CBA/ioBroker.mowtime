@@ -1,0 +1,19 @@
+{
+  "name": "iobroker.mowtime",
+  "version": "0.1.0",
+  "description": "Weather and growth based mowing time controller for Worx Landroid",
+  "author": "Hinrich",
+  "license": "MIT",
+  "main": "main.js",
+  "engines": { "node": ">=18" },
+  "keywords": ["iobroker", "garden", "mower", "worx", "landroid"],
+  "repository": { "type": "git", "url": "https://github.com/ABC0815CBA/ioBroker.mowtime" },
+  "homepage": "https://github.com/ABC0815CBA/ioBroker.mowtime",
+  "bugs": { "url": "https://github.com/ABC0815CBA/ioBroker.mowtime/issues" },
+  "files": ["admin", "lib", "main.js", "io-package.json", "README.md", "LICENSE"],
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "check": "node --check main.js && node --check lib/calculation.js && npm test"
+  },
+  "dependencies": { "@iobroker/adapter-core": "^3.1.6" }
+}
