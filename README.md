@@ -71,12 +71,11 @@ Zahlungsdaten abgefragt.
 
 ## Wachstumshistorie
 
-`history.last7Days` enthält die verwendeten Tageswerte und die berechneten
-Zonenergebnisse als JSON. `growth.simulatedMm` zeigt das simulierte Wachstum der
-letzten sieben Tage; `growth.zone0RemainingMm` bis `growth.zone3RemainingMm`
-zeigen das nach der anteiligen Mähzeit verbleibende Wachstum. Das Modell ist eine
-nachvollziehbare Heuristik und muss anhand der realen Rasenfläche kalibriert
-werden.
+`history.last7Days` enthält weiterhin alle Rohdetails als JSON. Zusätzlich werden
+die letzten sieben abgeschlossenen Tage klar lesbar unter
+`history.day0` bis `history.day6` abgelegt. Jeder Tag enthält für die vier
+Worx-Zonen Datum, Sollzeit, geschätzte Istzeit, Übertrag und Teilflächenergebnisse.
+`day0` ist der jüngste abgeschlossene Tag.
 
 ## Teilflächen und Worx-Zonen
 
@@ -89,10 +88,19 @@ optionale Bodenfeuchte sowie Start-/Stopp-Wachstum und Mindestmähzeit erfasst.
 Das Teilflächenmodell führt über sieben Tageswerte eine Wasserbilanz aus
 Niederschlag und FAO-Referenz-Evapotranspiration. Temperatur-, Licht-, Wasser-
 und Fruchtbarkeitsfaktoren begrenzen das potenzielle Wachstum multiplikativ.
-Anschließend wird der verbleibende Bedarf nach Worx-Zone summiert und daraus die
-Zonenfolge erzeugt. Alte feste Zonenflächen werden automatisch als je eine
+Erreicht eine Teilfläche ihren Startwert in Millimetern, wird genau ein
+Flächendurchgang mit `Fläche / Mähleistung × 60` Minuten angesetzt. Eine separate
+Stopp-Wachstumsschwelle gibt es nicht. Anschließend wird der Bedarf nach
+Worx-Zone summiert und daraus die Zonenfolge erzeugt. Alte feste Zonenflächen werden automatisch als je eine
 Teilfläche übernommen, solange noch keine neue Teilflächentabelle konfiguriert
 ist.
+
+Um 23 Uhr wird die seit Tagesbeginn gemessene absolute Worx-Laufzeit bilanziert.
+Da Worx keine tatsächliche Laufzeit je Startzone liefert, wird die Istzeit anhand
+der Sollverteilung auf die Zonen geschätzt. Unter- oder Übererfüllung wird je
+Zone auf den Folgetag übertragen. Beispiel: 60 min Tagessoll bei 90 min Kalender
+ergeben rechnerisch −33 %. Wurden nur 30 min erreicht, werden am Folgetag
+30 min Übertrag plus 60 min neues Soll = 90 min und damit 0 % angesetzt.
 
 ## Wichtige Annahmen
 

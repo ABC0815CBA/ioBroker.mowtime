@@ -1,6 +1,6 @@
 {
   "common": {
-    "name": "mowtime", "version": "0.2.0", "titleLang": { "en": "Mowtime", "de": "Mähzeit" },
+    "name": "mowtime", "version": "0.3.0", "titleLang": { "en": "Mowtime", "de": "Mähzeit" },
     "desc": { "en": "Weather and growth based mowing controller", "de": "Wetter- und wachstumsabhängige Mähsteuerung" },
     "authors": ["Hinrich"], "license": "MIT", "platform": "Javascript/Node.js", "mode": "daemon", "type": "garden",
     "icon": "mowtime.svg", "enabled": true, "compact": true, "connectionType": "local", "dataSource": "poll",
@@ -9,9 +9,9 @@
   },
   "native": {
     "worxPrefix": "worx.0.2021A0000007006076E5", "intervalMinutes": 5,
-    "weatherMode": "sensors", "latitude": 52.52, "longitude": 13.41, "weatherFailureMinutes": 60, "rainThreshold": 0.1,
+    "weatherMode": "sensors", "weatherProvider": "openmeteo", "rainSource": "state", "windSource": "state", "temperatureSource": "state", "sunshineSource": "state", "latitude": 52.52, "longitude": 13.41, "weatherFailureMinutes": 60, "rainThreshold": 0.1,
     "rainState": "", "windState": "", "temperatureState": "", "sunshineState": "", "et0State": "", "maxWind": 50, "minTemperature": 5,
-    "growthMmPerWeek": 3, "growthStartMm": 2, "growthStopMm": 0.5, "referenceGrowthMm": 3, "mowingSpeed": 100, "minTime": 30, "sequenceLength": 10,
+    "growthMmPerWeek": 3, "growthStartMm": 3, "mowingSpeed": 100, "minTime": 30, "sequenceLength": 10,
     "zone0Active": true, "zone0Area": 0, "zone0Soil": 2, "zone0Shade": 0,
     "zone1Active": false, "zone1Area": 0, "zone1Soil": 2, "zone1Shade": 0,
     "zone2Active": false, "zone2Area": 0, "zone2Soil": 2, "zone2Shade": 0,
