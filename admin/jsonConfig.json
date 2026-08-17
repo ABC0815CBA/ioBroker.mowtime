@@ -7,13 +7,15 @@
       "mowingSpeed": { "type": "number", "label": "Mähleistung", "unit": "m²/h", "min": 1 },
       "growthMmPerWeek": { "type": "number", "label": "Simuliertes Wachstum", "unit": "mm/Woche", "min": 0 },
       "growthStartMm": { "type": "number", "label": "Zone einschalten ab Restwachstum", "unit": "mm", "min": 0 },
-      "growthStopMm": { "type": "number", "label": "Zone ausschalten unter Restwachstum", "unit": "mm", "min": 0 },
-      "referenceGrowthMm": { "type": "number", "label": "Referenzwachstum für einen Flächendurchgang", "unit": "mm", "min": 0.1 },
       "minTime": { "type": "number", "label": "MinTime (Freigabe-Hysterese)", "unit": "min", "min": 0 },
       "sequenceLength": { "type": "number", "label": "Länge der Zonensequenz", "min": 1, "max": 100 }
     }},
     "weather": { "type": "panel", "label": "Wetter-Datenpunkte", "items": {
-      "weatherMode": { "type": "select", "label": "Wetterquelle", "options": [{"label":"Eigene ioBroker-Sensoren","value":"sensors"},{"label":"Open-Meteo (Internet)","value":"openmeteo"},{"label":"Bright Sky / DWD (Internet)","value":"brightsky"}] },
+      "weatherProvider": { "type": "select", "label": "Online-Wetteranbieter", "options": [{"label":"Open-Meteo","value":"openmeteo"},{"label":"Bright Sky / DWD","value":"brightsky"}] },
+      "rainSource": { "type": "select", "label": "Regenquelle", "options": [{"label":"Online","value":"online"},{"label":"Eigener Datenpunkt","value":"state"}] },
+      "windSource": { "type": "select", "label": "Windquelle", "options": [{"label":"Online","value":"online"},{"label":"Eigener Datenpunkt","value":"state"}] },
+      "temperatureSource": { "type": "select", "label": "Temperaturquelle", "options": [{"label":"Online","value":"online"},{"label":"Eigener Datenpunkt","value":"state"}] },
+      "sunshineSource": { "type": "select", "label": "Sonnenschein/ET0", "options": [{"label":"Online","value":"online"},{"label":"Eigene Datenpunkte","value":"state"}] },
       "latitude": { "type": "number", "label": "Breitengrad", "min": -90, "max": 90 },
       "longitude": { "type": "number", "label": "Längengrad", "min": -180, "max": 180 },
       "weatherFailureMinutes": { "type": "number", "label": "Letzten Wetterwert bei Fehlern verwenden", "unit": "min", "min": 0 },
@@ -47,9 +49,10 @@
           {"attr":"shade","title":"Schatten","type":"select","default":0,"options":[{"label":"Sonne","value":0},{"label":"Halbschatten","value":1},{"label":"Schatten","value":2}],"width":130},
           {"attr":"rootDepthCm","title":"Wurzeltiefe cm","type":"number","default":15,"min":5,"max":40,"width":120},
           {"attr":"rainFactor","title":"Regenfaktor","type":"number","default":1,"min":0,"max":2,"step":0.05,"width":110},
+          {"attr":"rainMode","title":"Regen","type":"select","default":"global","options":[{"label":"Global","value":"global"},{"label":"Eigener mm-Datenpunkt","value":"own"}],"width":140},
+          {"attr":"rainState","title":"Regen-Datenpunkt mm","type":"text","default":"","width":210},
           {"attr":"moistureState","title":"Bodenfeuchte-Datenpunkt %","type":"text","default":"","width":220},
           {"attr":"growthStartMm","title":"Start mm","type":"number","default":3,"min":0,"width":95},
-          {"attr":"growthStopMm","title":"Stopp mm","type":"number","default":0.5,"min":0,"width":95},
           {"attr":"minMowingMinutes","title":"Mindestbedarf min","type":"number","default":15,"min":0,"width":130}
         ]
       }
