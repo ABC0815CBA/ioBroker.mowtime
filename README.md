@@ -21,6 +21,12 @@ funktionsfähiger Prototyp und vor Veröffentlichung mit dem eigenen Mäher zu t
   Restbedarf mindestens `MinTime` beträgt (Hysterese).
 - Unterstützt lokale ioBroker-Sensoren, Open-Meteo und Bright Sky/DWD. Die
   Internetdienste werden höchstens alle 15 Minuten ohne API-Schlüssel abgefragt.
+- Ein lokaler Regenwert darf ein Boolean oder eine Niederschlagsmenge in mm sein.
+  Temperatur, Regenmenge und Sonnenscheindauer werden als rollierende
+  Sieben-Tage-Wetterhistorie gespeichert.
+- Das geschätzte Restwachstum jeder Zone besitzt eine eigene Hysterese: oberhalb
+  von `growthStartMm` wird die Zone aktiv, unterhalb von `growthStopMm` wieder
+  inaktiv.
 
 ## Installation zum Testen
 
@@ -62,6 +68,31 @@ dieses neutrale Verhalten gewechselt. Diagnosewerte stehen unter `weather.*`.
 Open-Meteo verlangt für die öffentliche, nichtkommerzielle API eine
 Quellenangabe; Bright Sky liefert offene DWD-Daten. Es werden weder API-Key noch
 Zahlungsdaten abgefragt.
+
+## Wachstumshistorie
+
+`history.last7Days` enthält die verwendeten Tageswerte und die berechneten
+Zonenergebnisse als JSON. `growth.simulatedMm` zeigt das simulierte Wachstum der
+letzten sieben Tage; `growth.zone0RemainingMm` bis `growth.zone3RemainingMm`
+zeigen das nach der anteiligen Mähzeit verbleibende Wachstum. Das Modell ist eine
+nachvollziehbare Heuristik und muss anhand der realen Rasenfläche kalibriert
+werden.
+
+## Teilflächen und Worx-Zonen
+
+Worx-Zonen 0–3 sind ausschließlich technische Ziele für `startSequence`.
+Biologische Eigenschaften werden in frei definierbaren Teilflächen gepflegt;
+mehrere Teilflächen können derselben Worx-Zone zugeordnet sein. Pro Teilfläche
+werden Fläche, Bodentextur, Fruchtbarkeit, Schatten, Wurzeltiefe, Regenfaktor,
+optionale Bodenfeuchte sowie Start-/Stopp-Wachstum und Mindestmähzeit erfasst.
+
+Das Teilflächenmodell führt über sieben Tageswerte eine Wasserbilanz aus
+Niederschlag und FAO-Referenz-Evapotranspiration. Temperatur-, Licht-, Wasser-
+und Fruchtbarkeitsfaktoren begrenzen das potenzielle Wachstum multiplikativ.
+Anschließend wird der verbleibende Bedarf nach Worx-Zone summiert und daraus die
+Zonenfolge erzeugt. Alte feste Zonenflächen werden automatisch als je eine
+Teilfläche übernommen, solange noch keine neue Teilflächentabelle konfiguriert
+ist.
 
 ## Wichtige Annahmen
 

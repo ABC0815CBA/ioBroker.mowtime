@@ -2,6 +2,8 @@
 const utils = require('@iobroker/adapter-core');
 const calc = require('./lib/calculation');
 const weatherApi = require('./lib/weather');
+const growth = require('./lib/growth');
+const patchModel = require('./lib/patch-model');
 
 class Mowtime extends utils.Adapter {
     constructor(options = {}) {
@@ -30,6 +32,20 @@ class Mowtime extends utils.Adapter {
         }));
     }
 
+    async getPatches() {
+        const configured = Array.isArray(this.config.patches) ? this.config.patches : [];
+        const source = configured.length ? configured : this.getZones().filter(zone => zone.area > 0).map(zone => ({
+            name: `Zone ${zone.id}`, enabled: zone.active, mowerZone: zone.id, area: zone.area,
+            soil: patchModel.legacySoil(zone.soil), shade: zone.shade, fertilityFactor: 1,
+            rainFactor: 1, rootDepthCm: 15, growthStartMm: this.config.growthStartMm,
+            growthStopMm: this.config.growthStopMm, minMowingMinutes: 0
+        }));
+        for (const patch of source) {
+            patch.moisturePercent = patch.moistureState ? Number(await this.readValue(patch.moistureState, NaN)) : NaN;
+        }
+        return source;
+    }
+
     async createStates() {
         const states = {
             'info.targetMinutes': ['number', 'min'], 'info.mowedMinutes': ['number', 'min'],
@@ -38,6 +54,8 @@ class Mowtime extends utils.Adapter {
             'weather.source': ['string', ''], 'weather.status': ['string', ''],
             'weather.lastSuccess': ['number', ''], 'weather.raining': ['boolean', ''],
             'weather.temperature': ['number', '°C'], 'weather.wind': ['number', 'km/h'],
+            'weather.sunshineHours': ['number', 'h'], 'history.last7Days': ['string', ''],
+            'growth.simulatedMm': ['number', 'mm'],
             'control.recalculate': ['boolean', '']
         };
         for (const [id, [type, unit]] of Object.entries(states)) {
@@ -48,11 +66,25 @@ class Mowtime extends utils.Adapter {
     async getWeather() {
         const mode = this.config.weatherMode || 'sensors';
         if (mode === 'sensors') {
+            const rainValue = await this.readValue(this.config.rainState, false);
+            const numericRain = typeof rainValue === 'number' ? rainValue : (rainValue ? Number(this.config.rainThreshold) || 0.1 : 0);
+            const temperature = Number(await this.readValue(this.config.temperatureState, 20));
+            const sunshineHours = Number(await this.readValue(this.config.sunshineState, 0));
+            const et0 = Number(await this.readValue(this.config.et0State, 0));
+            let daily = [];
+            try {
+                daily = JSON.parse(String((await this.getStateAsync('history.last7Days'))?.val || '{}')).weather || [];
+            } catch { daily = []; }
+            const today = new Date().toISOString().slice(0, 10);
+            daily = daily.filter(day => day && day.date !== today).slice(-6);
+            daily.push({ date: today, temperatureMean: temperature, precipitation: numericRain, sunshineHours, et0 });
             return {
                 interventionAllowed: true,
-                raining: Boolean(await this.readValue(this.config.rainState, false)),
+                raining: numericRain >= (Number(this.config.rainThreshold) || 0.1),
+                precipitation: numericRain,
                 wind: Number(await this.readValue(this.config.windState, 0)),
-                temperature: Number(await this.readValue(this.config.temperatureState, 20)),
+                temperature,
+                sunshineHours, daily,
                 source: 'sensors', status: 'ok'
             };
         }
@@ -110,23 +142,53 @@ class Mowtime extends utils.Adapter {
         const cal1 = await this.readValue(`${prefix}.calendar.calJson`, []);
         const cal2 = await this.readValue(`${prefix}.calendar.calJson2`, []);
         const planned = calc.calendarMinutes(cal1, cal2);
-        const growth = Number(this.config.growthMmPerWeek) || 0;
-        const zones = this.getZones();
-        const target = calc.targetMinutes(zones, growth, Number(this.config.mowingSpeed), Number(this.config.referenceGrowthMm) || 3);
+        const baseGrowth = Number(this.config.growthMmPerWeek) || 0;
         const weather = await this.getWeather();
+        const patches = await this.getPatches();
+        const patchResults = [];
+        const simulations = patches.map(patch => patchModel.simulatePatch({ ...patch, mowingSpeed: this.config.mowingSpeed, referenceGrowthMm: this.config.referenceGrowthMm }, weather.daily, baseGrowth));
+        const simulatedDemandTotal = simulations.reduce((sum, item) => sum + item.demandMinutes, 0);
+        for (let i = 0; i < patches.length; i++) {
+            const patch = patches[i];
+            const result = simulations[i];
+            const allocatedMowed = simulatedDemandTotal > 0 ? mowed * result.demandMinutes / simulatedDemandTotal : 0;
+            const remainingMm = growth.remainingZoneGrowth(result.growthMm, allocatedMowed, result.demandMinutes);
+            const safeId = String(patch.name || `patch${i}`).replace(/[^a-zA-Z0-9_-]/g, '_');
+            const activeState = `patches.${safeId}.active`;
+            await this.setObjectNotExistsAsync(activeState, { type: 'state', common: { name: `Patch ${patch.name} active`, type: 'boolean', role: 'indicator', read: true, write: false }, native: {} });
+            const previous = Boolean((await this.getStateAsync(activeState))?.val);
+            const startMm = Number(patch.growthStartMm ?? this.config.growthStartMm);
+            const stopMm = Number(patch.growthStopMm ?? this.config.growthStopMm);
+            const minMinutes = Math.max(0, Number(patch.minMowingMinutes) || 0);
+            const remainingDemandMinutes = Math.max(0, result.demandMinutes - allocatedMowed);
+            const active = patch.enabled !== false && (growth.hysteresis(previous, remainingMm, startMm, stopMm) || (minMinutes > 0 && remainingDemandMinutes >= minMinutes));
+            const values = { ...patch, ...result, demandMinutes: remainingDemandMinutes, remainingGrowthMm: remainingMm, active };
+            patchResults.push(values);
+            await this.setStateAsync(activeState, active, true);
+            for (const [suffix, value, unit] of [['growthMm', remainingMm, 'mm'], ['soilWaterMm', result.soilWaterMm, 'mm'], ['demandMinutes', remainingDemandMinutes, 'min']]) {
+                const id = `patches.${safeId}.${suffix}`;
+                await this.setObjectNotExistsAsync(id, { type: 'state', common: { name: `${patch.name} ${suffix}`, type: 'number', role: 'value', read: true, write: false, unit }, native: {} });
+                await this.setStateAsync(id, value, true);
+            }
+        }
+        const enabledZones = [0, 1, 2, 3].map(i => this.config[`zone${i}Active`] !== false);
+        const zoneWeights = patchModel.aggregateZones(patchResults, enabledZones);
+        const targetWithGrowthHysteresis = zoneWeights.reduce((sum, value) => sum + value, 0);
         const decision = weather.interventionAllowed
-            ? calc.decide({ raining: weather.raining, tooWindy: weather.wind > Number(this.config.maxWind), tooCold: weather.temperature < Number(this.config.minTemperature), target, mowed, planned, minTime: this.config.minTime, blockedByQuota: this.blockedByQuota })
+            ? calc.decide({ raining: weather.raining, tooWindy: weather.wind > Number(this.config.maxWind), tooCold: weather.temperature < Number(this.config.minTemperature), target: targetWithGrowthHysteresis, mowed: 0, planned, minTime: this.config.minTime, blockedByQuota: this.blockedByQuota })
             : { extension: 0, blocked: false, reason: 'weather-unavailable-no-intervention' };
         this.blockedByQuota = decision.reason === 'weekly-target-reached' || decision.reason === 'quota-hysteresis';
-        const sequence = calc.distributeZones(zones, growth, Number(this.config.sequenceLength) || 10);
+        const sequence = patchModel.sequenceFromWeights(zoneWeights, Number(this.config.sequenceLength) || 10);
         await this.setForeignStateAsync(`${prefix}.mower.mowTimeExtend`, decision.extension, false);
         if (sequence.length) await this.setForeignStateAsync(`${prefix}.areas.startSequence`, JSON.stringify(sequence), false);
         await Promise.all([
-            this.setStateAsync('info.targetMinutes', Math.round(target), true), this.setStateAsync('info.mowedMinutes', Math.round(mowed), true),
-            this.setStateAsync('info.remainingMinutes', Math.round(Math.max(0, target - mowed)), true), this.setStateAsync('info.extensionPercent', decision.extension, true),
+            this.setStateAsync('info.targetMinutes', Math.round(targetWithGrowthHysteresis), true), this.setStateAsync('info.mowedMinutes', Math.round(mowed), true),
+            this.setStateAsync('info.remainingMinutes', Math.round(targetWithGrowthHysteresis), true), this.setStateAsync('info.extensionPercent', decision.extension, true),
             this.setStateAsync('info.reason', decision.reason, true), this.setStateAsync('info.zoneSequence', JSON.stringify(sequence), true), this.setStateAsync('control.recalculate', false, true)
             , this.setStateAsync('weather.source', weather.source, true), this.setStateAsync('weather.status', weather.status, true)
             , this.setStateAsync('weather.raining', Boolean(weather.raining), true), this.setStateAsync('weather.temperature', Number(weather.temperature), true), this.setStateAsync('weather.wind', Number(weather.wind), true)
+            , this.setStateAsync('weather.sunshineHours', Number(weather.sunshineHours) || 0, true), this.setStateAsync('growth.simulatedMm', patchResults.length ? Math.max(...patchResults.map(p => p.growthMm)) : 0, true)
+            , this.setStateAsync('history.last7Days', JSON.stringify({ updated: new Date().toISOString(), weather: weather.daily || [], patches: patchResults, zoneDemandMinutes: zoneWeights }), true)
         ]);
     }
 
