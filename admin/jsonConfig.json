@@ -1,0 +1,33 @@
+{
+  "type": "tabs",
+  "items": {
+    "general": { "type": "panel", "label": "Allgemein", "items": {
+      "worxPrefix": { "type": "text", "label": "Worx-Datenpunktpräfix", "newLine": true },
+      "intervalMinutes": { "type": "number", "label": "Berechnungsintervall", "unit": "min", "min": 1 },
+      "mowingSpeed": { "type": "number", "label": "Mähleistung", "unit": "m²/h", "min": 1 },
+      "growthMmPerWeek": { "type": "number", "label": "Simuliertes Wachstum", "unit": "mm/Woche", "min": 0 },
+      "referenceGrowthMm": { "type": "number", "label": "Referenzwachstum für einen Flächendurchgang", "unit": "mm", "min": 0.1 },
+      "minTime": { "type": "number", "label": "MinTime (Freigabe-Hysterese)", "unit": "min", "min": 0 },
+      "sequenceLength": { "type": "number", "label": "Länge der Zonensequenz", "min": 1, "max": 100 }
+    }},
+    "weather": { "type": "panel", "label": "Wetter-Datenpunkte", "items": {
+      "weatherMode": { "type": "select", "label": "Wetterquelle", "options": [{"label":"Eigene ioBroker-Sensoren","value":"sensors"},{"label":"Open-Meteo (Internet)","value":"openmeteo"},{"label":"Bright Sky / DWD (Internet)","value":"brightsky"}] },
+      "latitude": { "type": "number", "label": "Breitengrad", "min": -90, "max": 90 },
+      "longitude": { "type": "number", "label": "Längengrad", "min": -180, "max": 180 },
+      "weatherFailureMinutes": { "type": "number", "label": "Letzten Wetterwert bei Fehlern verwenden", "unit": "min", "min": 0 },
+      "rainThreshold": { "type": "number", "label": "Regen ab Niederschlag", "unit": "mm", "min": 0 },
+      "rainState": { "type": "objectId", "label": "Regen (boolean)" },
+      "windState": { "type": "objectId", "label": "Windgeschwindigkeit" },
+      "maxWind": { "type": "number", "label": "Wind-Sperrgrenze" },
+      "temperatureState": { "type": "objectId", "label": "Außentemperatur" },
+      "minTemperature": { "type": "number", "label": "Temperatur-Sperrgrenze", "unit": "°C" }
+    }},
+    "zones": { "type": "panel", "label": "Zonen 0–3", "items": {
+      "_help": { "type": "staticText", "text": "Boden: 0 Sandig, 1 Sandig-Mischig, 2 Mischerde, 3 Humus, 4 Humus-Lehm, 5 Lehmig. Schatten: 0 Sonne, 1 Halbschatten, 2 Schatten." },
+      "zone0Active": { "type": "checkbox", "label": "Zone 0 aktiv" }, "zone0Area": { "type": "number", "label": "Zone 0 Fläche", "unit": "m²" }, "zone0Soil": { "type": "select", "label": "Zone 0 Boden", "options": [{"label":"Sandig","value":0},{"label":"Sandig-Mischig","value":1},{"label":"Mischerde","value":2},{"label":"Humus","value":3},{"label":"Humus-Lehm","value":4},{"label":"Lehmig","value":5}] }, "zone0Shade": { "type": "select", "label": "Zone 0 Schatten", "options": [{"label":"Sonne","value":0},{"label":"Halbschatten","value":1},{"label":"Schatten","value":2}] },
+      "zone1Active": { "type": "checkbox", "label": "Zone 1 aktiv" }, "zone1Area": { "type": "number", "label": "Zone 1 Fläche", "unit": "m²" }, "zone1Soil": { "type": "number", "label": "Zone 1 Boden (0–5)", "min":0,"max":5 }, "zone1Shade": { "type": "number", "label": "Zone 1 Schatten (0–2)", "min":0,"max":2 },
+      "zone2Active": { "type": "checkbox", "label": "Zone 2 aktiv" }, "zone2Area": { "type": "number", "label": "Zone 2 Fläche", "unit": "m²" }, "zone2Soil": { "type": "number", "label": "Zone 2 Boden (0–5)", "min":0,"max":5 }, "zone2Shade": { "type": "number", "label": "Zone 2 Schatten (0–2)", "min":0,"max":2 },
+      "zone3Active": { "type": "checkbox", "label": "Zone 3 aktiv" }, "zone3Area": { "type": "number", "label": "Zone 3 Fläche", "unit": "m²" }, "zone3Soil": { "type": "number", "label": "Zone 3 Boden (0–5)", "min":0,"max":5 }, "zone3Shade": { "type": "number", "label": "Zone 3 Schatten (0–2)", "min":0,"max":2 }
+    }}
+  }
+}
