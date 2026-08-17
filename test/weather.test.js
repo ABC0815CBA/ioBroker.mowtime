@@ -4,11 +4,11 @@ const assert = require('node:assert/strict');
 const weather = require('../lib/weather');
 
 test('parses Open-Meteo current weather', () => {
-    assert.deepEqual(weather.parseOpenMeteo({ current: { precipitation: 0.2, rain: 0.2, wind_speed_10m: 12, temperature_2m: 18 } }, 0.1), { raining: true, precipitation: 0.2, wind: 12, temperature: 18 });
+    assert.deepEqual(weather.parseOpenMeteo({ current: { precipitation: 0.2, rain: 0.2, wind_speed_10m: 12, temperature_2m: 18 } }, 0.1), { raining: true, precipitation: 0.2, wind: 12, temperature: 18, sunshineHours: 0, daily: [] });
 });
 
 test('parses Bright Sky current weather', () => {
-    assert.deepEqual(weather.parseBrightSky({ weather: { precipitation: 0, condition: 'dry', wind_speed: 8, temperature: 16 } }, 0.1), { raining: false, precipitation: 0, wind: 8, temperature: 16 });
+    assert.deepEqual(weather.parseBrightSky({ weather: { precipitation: 0, condition: 'dry', wind_speed: 8, temperature: 16 } }, 0.1), { raining: false, precipitation: 0, wind: 8, temperature: 16, sunshineHours: 0, daily: [] });
 });
 
 test('builds a keyless Open-Meteo request', async () => {
