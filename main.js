@@ -63,6 +63,7 @@ class Mowtime extends utils.Adapter {
             'weather.source': ['string', ''], 'weather.status': ['string', ''],
             'weather.lastSuccess': ['number', ''], 'weather.raining': ['boolean', ''],
             'weather.rainToday': ['number', 'mm'], 'weather.rain10Minutes': ['number', 'mm'],
+            'weather.hourBuffer': ['string', ''], 'weather.lastGrowthCalculation': ['number', ''],
             'weather.temperature': ['number', '°C'], 'weather.wind': ['number', 'km/h'],
             'weather.sunshineHours': ['number', 'h'], 'history.last7Days': ['string', ''],
             'growth.simulatedMm': ['number', 'mm'],
@@ -82,6 +83,50 @@ class Mowtime extends utils.Adapter {
                 await this.setObjectNotExistsAsync(id, { type: 'state', common: { name: id, type, role: 'value', read: true, write: false, unit: unit || undefined }, native: {} });
             }
         }
+    }
+
+    async collectHourlyWeather(weather, timestamp) {
+        let buffer;
+        try { buffer = JSON.parse(String((await this.getStateAsync('weather.hourBuffer'))?.val || '{}')); } catch { buffer = {}; }
+        if (!Number.isFinite(Number(buffer.startedAt))) buffer = { startedAt: timestamp, lastSampleAt: 0, samples: [] };
+        if (!Array.isArray(buffer.samples)) buffer.samples = [];
+        const sunshineFraction = Math.min(1, Math.max(0, (Number(weather.sunshineHours) || 0) / 12));
+        const dailyEt0 = Number((weather.daily || []).at(-1)?.et0);
+        const explicitEt0Rate = Number(weather.et0Rate);
+        const et0Rate = Number.isFinite(explicitEt0Rate) ? explicitEt0Rate : (Number.isFinite(dailyEt0) && dailyEt0 > 0 ? dailyEt0 / 24 : NaN);
+        if (!Number(buffer.lastSampleAt) || timestamp - Number(buffer.lastSampleAt) >= 14 * 60000) {
+            buffer.samples.push({
+                rainRate: Math.max(0, Number(weather.rain10Minutes ?? weather.precipitation) || 0) * 6,
+                temperature: Number(weather.temperature) || 0,
+                wind: Math.max(0, Number(weather.wind) || 0),
+                sunshineFraction,
+                et0Rate
+            });
+            buffer.lastSampleAt = timestamp;
+        }
+        const elapsedHours = (timestamp - Number(buffer.startedAt)) / 3600000;
+        if (elapsedHours < 1) {
+            await this.setStateAsync('weather.hourBuffer', JSON.stringify(buffer), true);
+            return null;
+        }
+        const mean = name => buffer.samples.reduce((sum, sample) => sum + (Number(sample[name]) || 0), 0) / buffer.samples.length;
+        const temperature = mean('temperature');
+        const wind = mean('wind');
+        const sunshine = mean('sunshineFraction');
+        const validEt0 = buffer.samples.filter(sample => Number.isFinite(Number(sample.et0Rate)));
+        const fallbackEt0Rate = Math.max(0, (0.012 * Math.max(0, temperature - 5) + 0.08 * sunshine) * (1 + wind / 50));
+        const averageEt0Rate = validEt0.length ? validEt0.reduce((sum, sample) => sum + Number(sample.et0Rate), 0) / validEt0.length : fallbackEt0Rate;
+        const result = {
+            elapsedHours: Math.min(24, elapsedHours),
+            rainMm: mean('rainRate') * Math.min(24, elapsedHours),
+            et0Mm: averageEt0Rate * Math.min(24, elapsedHours),
+            temperature,
+            wind,
+            sunshineFraction: sunshine
+        };
+        await this.setStateAsync('weather.hourBuffer', JSON.stringify({ startedAt: timestamp, lastSampleAt: 0, samples: [] }), true);
+        await this.setStateAsync('weather.lastGrowthCalculation', timestamp, true);
+        return result;
     }
 
     async trackZoneRuntime(totalHours, currentIndicator) {
@@ -160,7 +205,7 @@ class Mowtime extends utils.Adapter {
                 rainToday,
                 wind: Number(await this.readValue(this.config.windState, 0)),
                 temperature,
-                sunshineHours, daily,
+                sunshineHours, et0Rate: this.config.et0State ? et0 / 24 : undefined, daily,
                 source: 'sensors', status: 'ok'
             };
         }
@@ -243,6 +288,7 @@ class Mowtime extends utils.Adapter {
         const plannedWeek = calc.calendarMinutes(cal1, cal2);
         const baseGrowth = Number(this.config.growthMmPerWeek) || 0;
         const weather = await this.getWeather();
+        const hourlyWeather = await this.collectHourlyWeather(weather, now.getTime());
         const patches = await this.getPatches();
         const patchRainDetected = patches.some(patch => Number.isFinite(patch.ownRainMm) && patch.ownRainMm > (Number(this.config.rainThreshold) || 0.1));
         const patchResults = [];
@@ -259,23 +305,27 @@ class Mowtime extends utils.Adapter {
             await this.setObjectNotExistsAsync(activeState, { type: 'state', common: { name: `Patch ${patch.name} active`, type: 'boolean', role: 'indicator', read: true, write: false }, native: {} });
             const growthState = `patches.${safeId}.growthSinceMowingMm`;
             const updateState = `patches.${safeId}.lastGrowthUpdate`;
+            const soilWaterState = `patches.${safeId}.soilWaterMm`;
             await this.setObjectNotExistsAsync(growthState, { type: 'state', common: { name: `${patch.name} growth since mowing`, type: 'number', role: 'value', read: true, write: false, unit: 'mm' }, native: {} });
             await this.setObjectNotExistsAsync(updateState, { type: 'state', common: { name: `${patch.name} last growth update`, type: 'number', role: 'value.time', read: true, write: false }, native: {} });
+            await this.setObjectNotExistsAsync(soilWaterState, { type: 'state', common: { name: `${patch.name} persistent soil water`, type: 'number', role: 'value', read: true, write: false, unit: 'mm' }, native: {} });
             const previousGrowth = Number((await this.getStateAsync(growthState))?.val) || 0;
-            const lastUpdate = Number((await this.getStateAsync(updateState))?.val);
-            const elapsedDays = Number.isFinite(lastUpdate) ? Math.min(7, Math.max(0, (now.getTime() - lastUpdate) / 86400000)) : 0;
-            const dailySamples = result.days.map(day => day.growthMm);
-            const remainingMm = patchModel.accumulateGrowth(previousGrowth, dailySamples, elapsedDays);
+            const storedWaterState = await this.getStateAsync(soilWaterState);
+            const storedWater = storedWaterState && storedWaterState.val !== null ? Number(storedWaterState.val) : result.capacityMm * 0.7;
+            const hourResult = hourlyWeather ? patchModel.simulateHour(patch, hourlyWeather, baseGrowth, storedWater, hourlyWeather.elapsedHours) : null;
+            const remainingMm = previousGrowth + (hourResult?.growthMm || 0);
+            const currentSoilWater = hourResult ? hourResult.soilWaterMm : storedWater;
             const startMm = Number(patch.growthStartMm ?? this.config.growthStartMm);
             const remainingDemandMinutes = result.demandMinutes;
             const active = patch.enabled !== false && remainingMm >= startMm;
             const dailyDemandMinutes = active ? remainingDemandMinutes : 0;
-            const values = { ...patch, ...result, safeId, demandMinutes: dailyDemandMinutes, remainingGrowthMm: remainingMm, active };
+            const values = { ...patch, ...result, soilWaterMm: currentSoilWater, safeId, demandMinutes: dailyDemandMinutes, remainingGrowthMm: remainingMm, active };
             patchResults.push(values);
             await this.setStateAsync(activeState, active, true);
             await this.setStateAsync(growthState, remainingMm, true);
-            await this.setStateAsync(updateState, now.getTime(), true);
-            for (const [suffix, value, unit] of [['growthMm', remainingMm, 'mm'], ['soilWaterMm', result.soilWaterMm, 'mm'], ['demandMinutes', dailyDemandMinutes, 'min']]) {
+            if (hourlyWeather) await this.setStateAsync(updateState, now.getTime(), true);
+            await this.setStateAsync(soilWaterState, currentSoilWater, true);
+            for (const [suffix, value, unit] of [['growthMm', remainingMm, 'mm'], ['demandMinutes', dailyDemandMinutes, 'min']]) {
                 const id = `patches.${safeId}.${suffix}`;
                 await this.setObjectNotExistsAsync(id, { type: 'state', common: { name: `${patch.name} ${suffix}`, type: 'number', role: 'value', read: true, write: false, unit }, native: {} });
                 await this.setStateAsync(id, value, true);
