@@ -201,7 +201,7 @@ class Mowtime extends utils.Adapter {
             await this.setObjectNotExistsAsync(activeState, { type: 'state', common: { name: `Patch ${patch.name} active`, type: 'boolean', role: 'indicator', read: true, write: false }, native: {} });
             const startMm = Number(patch.growthStartMm ?? this.config.growthStartMm);
             const minMinutes = Math.max(0, Number(patch.minMowingMinutes) || 0);
-            const remainingDemandMinutes = Math.max(0, result.demandMinutes - allocatedMowed);
+            const remainingDemandMinutes = result.demandMinutes;
             const active = patch.enabled !== false && remainingMm >= startMm;
             const dailyDemandMinutes = active ? Math.max(remainingDemandMinutes, minMinutes) : 0;
             const values = { ...patch, ...result, demandMinutes: dailyDemandMinutes, remainingGrowthMm: remainingMm, active };
