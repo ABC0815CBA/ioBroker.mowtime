@@ -22,6 +22,15 @@ class Mowtime extends utils.Adapter {
         return state && state.val !== null ? state.val : fallback;
     }
 
+    async setForeignIfChanged(id, value, normalizer = current => current) {
+        const currentState = await this.getForeignStateAsync(id);
+        const current = currentState && currentState.val !== null ? normalizer(currentState.val) : undefined;
+        const desired = normalizer(value);
+        if (JSON.stringify(current) === JSON.stringify(desired)) return false;
+        await this.setForeignStateAsync(id, value, false);
+        return true;
+    }
+
     getZones() {
         return [0, 1, 2, 3].map(i => ({
             id: i,
@@ -37,8 +46,7 @@ class Mowtime extends utils.Adapter {
         const source = configured.length ? configured : this.getZones().filter(zone => zone.area > 0).map(zone => ({
             name: `Zone ${zone.id}`, enabled: zone.active, mowerZone: zone.id, area: zone.area,
             soil: patchModel.legacySoil(zone.soil), shade: zone.shade, fertilityFactor: 1,
-            rainFactor: 1, rootDepthCm: 15, growthStartMm: this.config.growthStartMm,
-            minMowingMinutes: 0
+            rainFactor: 1, rootDepthCm: 15, growthStartMm: this.config.growthStartMm
         }));
         for (const patch of source) {
             patch.moisturePercent = patch.moistureState ? Number(await this.readValue(patch.moistureState, NaN)) : NaN;
@@ -68,6 +76,12 @@ class Mowtime extends utils.Adapter {
         for (const [id, [type, unit]] of Object.entries(states)) {
             await this.setObjectNotExistsAsync(id, { type: 'state', common: { name: id, type, role: id === 'control.recalculate' ? 'button' : 'value', read: true, write: id === 'control.recalculate', unit: unit || undefined }, native: {} });
         }
+        for (let zone = 0; zone < 4; zone++) {
+            for (const [name, type, unit] of [['mowingRequired', 'boolean', ''], ['targetMinutes', 'number', 'min'], ['mowedMinutes', 'number', 'min'], ['remainingMinutes', 'number', 'min'], ['triggerPatch', 'string', '']]) {
+                const id = `zones.zone${zone}.${name}`;
+                await this.setObjectNotExistsAsync(id, { type: 'state', common: { name: id, type, role: 'value', read: true, write: false, unit: unit || undefined }, native: {} });
+            }
+        }
     }
 
     async trackZoneRuntime(totalHours, currentIndicator) {
@@ -79,6 +93,12 @@ class Mowtime extends utils.Adapter {
         const elapsedMinutes = Number.isFinite(previousTotal) ? Math.max(0, (totalHours - previousTotal) * 60) : 0;
         if (elapsedMinutes > 0 && Number.isInteger(previousZone) && previousZone >= 0 && previousZone < 4) {
             actualByZone[previousZone] = (Number(actualByZone[previousZone]) || 0) + elapsedMinutes;
+            const required = Boolean((await this.getStateAsync(`zones.zone${previousZone}.mowingRequired`))?.val);
+            if (required) {
+                const mowedId = `zones.zone${previousZone}.mowedMinutes`;
+                const mowed = Number((await this.getStateAsync(mowedId))?.val) || 0;
+                await this.setStateAsync(mowedId, mowed + elapsedMinutes, true);
+            }
         }
         const nextZone = Number(currentIndicator);
         await this.setStateAsync('accounting.actualByZone', JSON.stringify(actualByZone), true);
@@ -234,17 +254,27 @@ class Mowtime extends utils.Adapter {
         for (let i = 0; i < patches.length; i++) {
             const patch = patches[i];
             const result = simulations[i];
-            const remainingMm = result.growthMm;
             const safeId = String(patch.name || `patch${i}`).replace(/[^a-zA-Z0-9_-]/g, '_');
             const activeState = `patches.${safeId}.active`;
             await this.setObjectNotExistsAsync(activeState, { type: 'state', common: { name: `Patch ${patch.name} active`, type: 'boolean', role: 'indicator', read: true, write: false }, native: {} });
+            const growthState = `patches.${safeId}.growthSinceMowingMm`;
+            const updateState = `patches.${safeId}.lastGrowthUpdate`;
+            await this.setObjectNotExistsAsync(growthState, { type: 'state', common: { name: `${patch.name} growth since mowing`, type: 'number', role: 'value', read: true, write: false, unit: 'mm' }, native: {} });
+            await this.setObjectNotExistsAsync(updateState, { type: 'state', common: { name: `${patch.name} last growth update`, type: 'number', role: 'value.time', read: true, write: false }, native: {} });
+            const previousGrowth = Number((await this.getStateAsync(growthState))?.val) || 0;
+            const lastUpdate = Number((await this.getStateAsync(updateState))?.val);
+            const elapsedDays = Number.isFinite(lastUpdate) ? Math.min(7, Math.max(0, (now.getTime() - lastUpdate) / 86400000)) : 0;
+            const dailySamples = result.days.map(day => day.growthMm);
+            const remainingMm = patchModel.accumulateGrowth(previousGrowth, dailySamples, elapsedDays);
             const startMm = Number(patch.growthStartMm ?? this.config.growthStartMm);
             const remainingDemandMinutes = result.demandMinutes;
             const active = patch.enabled !== false && remainingMm >= startMm;
             const dailyDemandMinutes = active ? remainingDemandMinutes : 0;
-            const values = { ...patch, ...result, demandMinutes: dailyDemandMinutes, remainingGrowthMm: remainingMm, active };
+            const values = { ...patch, ...result, safeId, demandMinutes: dailyDemandMinutes, remainingGrowthMm: remainingMm, active };
             patchResults.push(values);
             await this.setStateAsync(activeState, active, true);
+            await this.setStateAsync(growthState, remainingMm, true);
+            await this.setStateAsync(updateState, now.getTime(), true);
             for (const [suffix, value, unit] of [['growthMm', remainingMm, 'mm'], ['soilWaterMm', result.soilWaterMm, 'mm'], ['demandMinutes', dailyDemandMinutes, 'min']]) {
                 const id = `patches.${safeId}.${suffix}`;
                 await this.setObjectNotExistsAsync(id, { type: 'state', common: { name: `${patch.name} ${suffix}`, type: 'number', role: 'value', read: true, write: false, unit }, native: {} });
@@ -252,14 +282,45 @@ class Mowtime extends utils.Adapter {
             }
         }
         const enabledZones = [0, 1, 2, 3].map(i => this.config[`zone${i}Active`] !== false);
-        const zoneWeights = patchModel.aggregateZones(patchResults, enabledZones);
+        const zoneWeights = [0, 0, 0, 0];
+        for (let zone = 0; zone < 4; zone++) {
+            let required = Boolean((await this.getStateAsync(`zones.zone${zone}.mowingRequired`))?.val);
+            let target = Number((await this.getStateAsync(`zones.zone${zone}.targetMinutes`))?.val) || 0;
+            let mowed = Number((await this.getStateAsync(`zones.zone${zone}.mowedMinutes`))?.val) || 0;
+            let triggerPatch = String((await this.getStateAsync(`zones.zone${zone}.triggerPatch`))?.val || '');
+            let completed = false;
+            if (required && target > 0 && mowed >= target) {
+                completed = true;
+                required = false; target = 0; mowed = 0; triggerPatch = '';
+                for (const patch of patchResults.filter(item => Number(item.mowerZone) === zone)) {
+                    patch.remainingGrowthMm = 0; patch.active = false; patch.demandMinutes = 0;
+                    await this.setStateAsync(`patches.${patch.safeId}.growthSinceMowingMm`, 0, true);
+                    await this.setStateAsync(`patches.${patch.safeId}.growthMm`, 0, true);
+                    await this.setStateAsync(`patches.${patch.safeId}.active`, false, true);
+                    await this.setStateAsync(`patches.${patch.safeId}.demandMinutes`, 0, true);
+                }
+            }
+            const zonePatches = patchResults.filter(item => Number(item.mowerZone) === zone && item.enabled !== false);
+            const triggeringPatch = !completed && !required ? zonePatches.find(item => item.active) : null;
+            if (triggeringPatch && enabledZones[zone]) {
+                required = true;
+                target = zonePatches.reduce((sum, item) => sum + Math.max(0, Number(item.passMinutes) || 0), 0);
+                mowed = 0;
+                triggerPatch = triggeringPatch.name || triggeringPatch.safeId;
+            }
+            const remaining = required ? Math.max(0, target - mowed) : 0;
+            zoneWeights[zone] = remaining;
+            await this.setStateAsync(`zones.zone${zone}.mowingRequired`, required, true);
+            await this.setStateAsync(`zones.zone${zone}.targetMinutes`, target, true);
+            await this.setStateAsync(`zones.zone${zone}.mowedMinutes`, mowed, true);
+            await this.setStateAsync(`zones.zone${zone}.remainingMinutes`, remaining, true);
+            await this.setStateAsync(`zones.zone${zone}.triggerPatch`, triggerPatch, true);
+        }
         const dateKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
         let accountDate = String((await this.getStateAsync('accounting.date'))?.val || '');
         let startTotal = Number((await this.getStateAsync('accounting.startTotalHours'))?.val);
         let settled = Boolean((await this.getStateAsync('accounting.settled'))?.val);
         let accountInitializedNow = false;
-        let carryByZone;
-        try { carryByZone = JSON.parse(String((await this.getStateAsync('accounting.carryByZone'))?.val || '[0,0,0,0]')); } catch { carryByZone = [0, 0, 0, 0]; }
         if (accountDate !== dateKey || !Number.isFinite(startTotal)) {
             accountInitializedNow = !accountDate || !Number.isFinite(startTotal);
             accountDate = dateKey; startTotal = totalHours; settled = false;
@@ -272,14 +333,14 @@ class Mowtime extends utils.Adapter {
             settled = true;
             await this.setStateAsync('accounting.settled', true, true);
         }
-        const desiredByZoneToday = dailyPlanner.nextDemand(zoneWeights, carryByZone);
+        const desiredByZoneToday = zoneWeights;
         const actualToday = Math.max(0, (totalHours - startTotal) * 60);
         if (now.getHours() >= 23 && !settled && !accountInitializedNow) {
-            const closed = dailyPlanner.settleDay(desiredByZoneToday, trackedActualByZone);
-            carryByZone = closed.carryByZone;
+            const carryByZone = [...zoneWeights];
+            const targetByZone = zoneWeights.map((remaining, zone) => remaining + (Number(trackedActualByZone[zone]) || 0));
             let records;
             try { records = JSON.parse(String((await this.getStateAsync('history.records'))?.val || '[]')); } catch { records = []; }
-            records.unshift({ date: dateKey, targetByZone: desiredByZoneToday, actualByZone: closed.actualByZone, carryByZone, actualAllocation: 'measured by Worx actualAreaIndicator', patches: patchResults });
+            records.unshift({ date: dateKey, targetByZone, actualByZone: trackedActualByZone, carryByZone, actualAllocation: 'measured by Worx actualAreaIndicator', patches: patchResults });
             records = records.slice(0, 7);
             await this.setStateAsync('history.records', JSON.stringify(records), true);
             await this.setStateAsync('accounting.carryByZone', JSON.stringify(carryByZone), true);
@@ -290,7 +351,7 @@ class Mowtime extends utils.Adapter {
         const calculationDate = new Date(now);
         if (settled) calculationDate.setDate(calculationDate.getDate() + 1);
         const planned = calc.calendarDayMinutes(calculationDate, cal1, cal2);
-        const desiredByZone = settled ? dailyPlanner.nextDemand(zoneWeights, carryByZone) : desiredByZoneToday;
+        const desiredByZone = desiredByZoneToday;
         const targetDaily = desiredByZone.reduce((sum, value) => sum + value, 0);
         let decision;
         if (!weather.interventionAllowed) decision = { extension: 0, blocked: false, reason: 'weather-unavailable-no-intervention' };
@@ -300,17 +361,22 @@ class Mowtime extends utils.Adapter {
         else if (targetDaily < Math.max(0, Number(this.config.minTime) || 0)) decision = { extension: -100, blocked: true, reason: 'daily-demand-below-minimum' };
         else decision = { extension: dailyPlanner.extensionPercent(targetDaily, planned), blocked: false, reason: settled ? 'next-day-demand' : 'daily-demand' };
         const sequence = patchModel.sequenceFromWeights(desiredByZone, Number(this.config.sequenceLength) || 10);
-        await this.setForeignStateAsync(`${prefix}.mower.mowTimeExtend`, decision.extension, false);
-        if (sequence.length) await this.setForeignStateAsync(`${prefix}.areas.startSequence`, JSON.stringify(sequence), false);
+        await this.setForeignIfChanged(`${prefix}.mower.mowTimeExtend`, decision.extension, value => Number(value));
+        if (sequence.length) {
+            await this.setForeignIfChanged(`${prefix}.areas.startSequence`, JSON.stringify(sequence), value => {
+                if (Array.isArray(value)) return value.map(Number);
+                try { return JSON.parse(String(value)).map(Number); } catch { return String(value); }
+            });
+        }
         await Promise.all([
-            this.setStateAsync('info.targetMinutes', Math.round(targetDaily), true), this.setStateAsync('info.mowedMinutes', Math.round(actualToday), true),
-            this.setStateAsync('info.remainingMinutes', Math.round(Math.max(0, targetDaily - actualToday)), true), this.setStateAsync('info.extensionPercent', decision.extension, true),
+            this.setStateAsync('info.targetMinutes', Math.round(targetDaily + actualToday), true), this.setStateAsync('info.mowedMinutes', Math.round(actualToday), true),
+            this.setStateAsync('info.remainingMinutes', Math.round(targetDaily), true), this.setStateAsync('info.extensionPercent', decision.extension, true),
             this.setStateAsync('info.reason', decision.reason, true), this.setStateAsync('info.zoneSequence', JSON.stringify(sequence), true), this.setStateAsync('control.recalculate', false, true)
             , this.setStateAsync('weather.source', weather.source, true), this.setStateAsync('weather.status', weather.status, true)
             , this.setStateAsync('weather.raining', Boolean(weather.raining), true), this.setStateAsync('weather.temperature', Number(weather.temperature), true), this.setStateAsync('weather.wind', Number(weather.wind), true)
             , this.setStateAsync('weather.rainToday', Number(weather.rainToday) || 0, true)
             , this.setStateAsync('weather.rain10Minutes', Number(weather.rain10Minutes ?? weather.precipitation) || 0, true)
-            , this.setStateAsync('weather.sunshineHours', Number(weather.sunshineHours) || 0, true), this.setStateAsync('growth.simulatedMm', patchResults.length ? Math.max(...patchResults.map(p => p.growthMm)) : 0, true)
+            , this.setStateAsync('weather.sunshineHours', Number(weather.sunshineHours) || 0, true), this.setStateAsync('growth.simulatedMm', patchResults.length ? Math.max(...patchResults.map(p => p.remainingGrowthMm)) : 0, true)
             , this.setStateAsync('history.last7Days', JSON.stringify({ updated: new Date().toISOString(), weather: weather.daily || [], patches: patchResults, zoneDemandMinutes: desiredByZone, plannedMinutes: planned, plannedWeekMinutes: plannedWeek }), true)
         ]);
     }
