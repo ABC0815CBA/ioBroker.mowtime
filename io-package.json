@@ -1,6 +1,6 @@
 {
   "common": {
-    "name": "mowtime", "version": "0.4.1", "titleLang": { "en": "Mowtime", "de": "Mähzeit" },
+    "name": "mowtime", "version": "0.5.0", "titleLang": { "en": "Mowtime", "de": "Mähzeit" },
     "desc": { "en": "Weather and growth based mowing controller", "de": "Wetter- und wachstumsabhängige Mähsteuerung" },
     "authors": ["Hinrich"], "license": "MIT", "platform": "Javascript/Node.js", "mode": "daemon", "type": "garden",
     "icon": "mowtime.svg", "enabled": true, "compact": true, "connectionType": "local", "dataSource": "poll",
