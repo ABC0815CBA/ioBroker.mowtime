@@ -11,6 +11,7 @@ class Mowtime extends utils.Adapter {
         this.timer = null;
         this.weekStartTotal = null;
         this.weatherCache = null;
+        this.zoneTracking = Promise.resolve();
         this.on('ready', this.onReady.bind(this));
         this.on('unload', this.onUnload.bind(this));
     }
@@ -58,12 +59,31 @@ class Mowtime extends utils.Adapter {
             'growth.simulatedMm': ['number', 'mm'],
             'accounting.date': ['string', ''], 'accounting.startTotalHours': ['number', 'h'],
             'accounting.carryByZone': ['string', ''], 'accounting.settled': ['boolean', ''],
+            'accounting.actualByZone': ['string', ''], 'accounting.lastTotalHours': ['number', 'h'],
+            'accounting.lastAreaIndicator': ['number', ''],
             'history.records': ['string', ''],
             'control.recalculate': ['boolean', '']
         };
         for (const [id, [type, unit]] of Object.entries(states)) {
             await this.setObjectNotExistsAsync(id, { type: 'state', common: { name: id, type, role: id === 'control.recalculate' ? 'button' : 'value', read: true, write: id === 'control.recalculate', unit: unit || undefined }, native: {} });
         }
+    }
+
+    async trackZoneRuntime(totalHours, currentIndicator) {
+        let actualByZone;
+        try { actualByZone = JSON.parse(String((await this.getStateAsync('accounting.actualByZone'))?.val || '[0,0,0,0]')); } catch { actualByZone = [0, 0, 0, 0]; }
+        if (!Array.isArray(actualByZone) || actualByZone.length !== 4) actualByZone = [0, 0, 0, 0];
+        const previousTotal = Number((await this.getStateAsync('accounting.lastTotalHours'))?.val);
+        const previousZone = Number((await this.getStateAsync('accounting.lastAreaIndicator'))?.val);
+        const elapsedMinutes = Number.isFinite(previousTotal) ? Math.max(0, (totalHours - previousTotal) * 60) : 0;
+        if (elapsedMinutes > 0 && Number.isInteger(previousZone) && previousZone >= 0 && previousZone < 4) {
+            actualByZone[previousZone] = (Number(actualByZone[previousZone]) || 0) + elapsedMinutes;
+        }
+        const nextZone = Number(currentIndicator);
+        await this.setStateAsync('accounting.actualByZone', JSON.stringify(actualByZone), true);
+        await this.setStateAsync('accounting.lastTotalHours', totalHours, true);
+        if (Number.isInteger(nextZone) && nextZone >= 0 && nextZone < 4) await this.setStateAsync('accounting.lastAreaIndicator', nextZone, true);
+        return actualByZone;
     }
 
     async publishReadableHistory(records) {
@@ -73,7 +93,7 @@ class Mowtime extends utils.Adapter {
                 const prefix = `history.day${day}.zone${zone}`;
                 const values = {
                     date: record.date || '', targetMinutes: Number(record.targetByZone?.[zone]) || 0,
-                    actualMinutesEstimated: Number(record.actualByZone?.[zone]) || 0,
+                    actualMinutes: Number(record.actualByZone?.[zone]) || 0,
                     carryMinutes: Number(record.carryByZone?.[zone]) || 0,
                     patchResults: JSON.stringify((record.patches || []).filter(p => Number(p.mowerZone) === zone).map(p => ({ name: p.name, growthMm: p.remainingGrowthMm, targetMinutes: p.demandMinutes, soilWaterMm: p.soilWaterMm })))
                 };
@@ -157,7 +177,16 @@ class Mowtime extends utils.Adapter {
     async onReady() {
         await this.createStates();
         this.subscribeStates('control.recalculate');
-        this.on('stateChange', (id, state) => { if (id.endsWith('control.recalculate') && state && !state.ack) this.run().catch(e => this.log.error(e.stack || e.message)); });
+        if (this.config.worxPrefix) this.subscribeForeignStates(`${this.config.worxPrefix}.areas.actualAreaIndicator`);
+        this.on('stateChange', (id, state) => {
+            if (id.endsWith('control.recalculate') && state && !state.ack) this.run().catch(e => this.log.error(e.stack || e.message));
+            if (id === `${this.config.worxPrefix}.areas.actualAreaIndicator` && state) {
+                this.zoneTracking = this.zoneTracking.then(async () => {
+                    const total = Number(await this.readValue(`${this.config.worxPrefix}.mower.totalTime`, 0));
+                    await this.trackZoneRuntime(total, state.val);
+                }).catch(e => this.log.warn(`Could not track zone runtime: ${e.message}`));
+            }
+        });
         await this.run();
         this.timer = this.setInterval(() => this.run().catch(e => this.log.error(e.stack || e.message)), Math.max(1, Number(this.config.intervalMinutes) || 5) * 60000);
     }
@@ -166,6 +195,9 @@ class Mowtime extends utils.Adapter {
         const prefix = this.config.worxPrefix;
         if (!prefix) { this.log.warn('Worx prefix is not configured'); return; }
         const totalHours = Number(await this.readValue(`${prefix}.mower.totalTime`, 0));
+        const actualAreaIndicator = await this.readValue(`${prefix}.areas.actualAreaIndicator`, -1);
+        await this.zoneTracking;
+        const trackedActualByZone = await this.trackZoneRuntime(totalHours, actualAreaIndicator);
         const now = new Date();
         const monday = new Date(now); monday.setDate(now.getDate() - ((now.getDay() + 6) % 7)); monday.setHours(0, 0, 0, 0);
         const savedWeek = await this.getStateAsync('info.weekKey');
@@ -200,10 +232,9 @@ class Mowtime extends utils.Adapter {
             const activeState = `patches.${safeId}.active`;
             await this.setObjectNotExistsAsync(activeState, { type: 'state', common: { name: `Patch ${patch.name} active`, type: 'boolean', role: 'indicator', read: true, write: false }, native: {} });
             const startMm = Number(patch.growthStartMm ?? this.config.growthStartMm);
-            const minMinutes = Math.max(0, Number(patch.minMowingMinutes) || 0);
             const remainingDemandMinutes = result.demandMinutes;
             const active = patch.enabled !== false && remainingMm >= startMm;
-            const dailyDemandMinutes = active ? Math.max(remainingDemandMinutes, minMinutes) : 0;
+            const dailyDemandMinutes = active ? remainingDemandMinutes : 0;
             const values = { ...patch, ...result, demandMinutes: dailyDemandMinutes, remainingGrowthMm: remainingMm, active };
             patchResults.push(values);
             await this.setStateAsync(activeState, active, true);
@@ -228,6 +259,7 @@ class Mowtime extends utils.Adapter {
             await this.setStateAsync('accounting.date', dateKey, true);
             await this.setStateAsync('accounting.startTotalHours', startTotal, true);
             await this.setStateAsync('accounting.settled', false, true);
+            await this.setStateAsync('accounting.actualByZone', '[0,0,0,0]', true);
         }
         if (accountInitializedNow && now.getHours() >= 23) {
             settled = true;
@@ -236,11 +268,11 @@ class Mowtime extends utils.Adapter {
         const desiredByZoneToday = dailyPlanner.nextDemand(zoneWeights, carryByZone);
         const actualToday = Math.max(0, (totalHours - startTotal) * 60);
         if (now.getHours() >= 23 && !settled && !accountInitializedNow) {
-            const closed = dailyPlanner.settleDay(desiredByZoneToday, actualToday);
+            const closed = dailyPlanner.settleDay(desiredByZoneToday, trackedActualByZone);
             carryByZone = closed.carryByZone;
             let records;
             try { records = JSON.parse(String((await this.getStateAsync('history.records'))?.val || '[]')); } catch { records = []; }
-            records.unshift({ date: dateKey, targetByZone: desiredByZoneToday, actualByZone: closed.actualByZone, carryByZone, actualAllocation: 'estimated from target distribution', patches: patchResults });
+            records.unshift({ date: dateKey, targetByZone: desiredByZoneToday, actualByZone: closed.actualByZone, carryByZone, actualAllocation: 'measured by Worx actualAreaIndicator', patches: patchResults });
             records = records.slice(0, 7);
             await this.setStateAsync('history.records', JSON.stringify(records), true);
             await this.setStateAsync('accounting.carryByZone', JSON.stringify(carryByZone), true);
