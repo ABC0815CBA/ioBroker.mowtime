@@ -29,3 +29,17 @@ test('growth accumulates over elapsed days and keeps the previous cycle value', 
     assert.equal(model.accumulateGrowth(1.2, [0.4, 0.6], 2), 2.2);
     assert.equal(model.accumulateGrowth(2, [1], 20), 9);
 });
+
+test('small five-minute growth increments are not rounded away', () => {
+    const fiveMinutes = 5 / 1440;
+    let growth = 0;
+    for (let run = 0; run < 288; run++) growth = model.accumulateGrowth(growth, [0.28], fiveMinutes);
+    assert.ok(growth > 0.27 && growth < 0.29);
+});
+
+test('hourly simulation lets wind-based ET dry the persistent soil store', () => {
+    const patch = { soil: 'mixed', rootDepthCm: 15, shade: 0, fertilityFactor: 1 };
+    const result = model.simulateHour(patch, { rainMm: 0, et0Mm: 0.4, temperature: 20, sunshineFraction: 1 }, 3, 10, 1);
+    assert.equal(result.soilWaterMm, 9.6);
+    assert.ok(result.growthMm > 0);
+});
