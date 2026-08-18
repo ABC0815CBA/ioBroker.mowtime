@@ -20,6 +20,9 @@ unbeaufsichtigtem Betrieb mit dem eigenen Mäher beobachtet werden.
   Restbedarf mindestens `MinTime` beträgt (Hysterese).
 - Unterstützt lokale ioBroker-Sensoren, Open-Meteo und Bright Sky/DWD. Die
   Internetdienste werden höchstens alle 15 Minuten ohne API-Schlüssel abgefragt.
+- Wetterwerte werden in einem persistenten Stundenpuffer gemittelt bzw. summiert.
+  Bodenwasser und Wachstum werden nur einmal je abgeschlossener Stunde verändert;
+  die Regensperre bleibt unabhängig davon unmittelbar wirksam.
 - Ein lokaler Regenwert darf ein Boolean oder eine Niederschlagsmenge in mm/10 min sein.
   `weather.raining` wird aktiv, wenn dieser Wert größer als der Grenzwert
   (standardmäßig 0,1 mm/10 min) ist. Die Tagesregenmenge steht in
@@ -91,6 +94,10 @@ optionale Bodenfeuchte sowie der Wachstumsschwellwert in Millimetern erfasst.
 Das Teilflächenmodell führt über sieben Tageswerte eine Wasserbilanz aus
 Niederschlag und FAO-Referenz-Evapotranspiration. Temperatur-, Licht-, Wasser-
 und Fruchtbarkeitsfaktoren begrenzen das potenzielle Wachstum multiplikativ.
+Der Bodenwasserspeicher beginnt bei der ersten Installation mit 70 Prozent und
+wird danach je Teilfläche dauerhaft fortgeschrieben. Ist ET0 vorhanden, enthält
+es den Windeinfluss bereits. Ohne ET0 schätzt der Adapter die Verdunstung aus
+Temperatur, Sonnenschein und Wind.
 Erreicht eine Teilfläche ihren Startwert, wird für die gesamte zugehörige Zone
 ein Durchgang mit `Zonenfläche / Mähleistung × 60` Minuten angelegt. Der Auftrag
 bleibt über Tagesgrenzen bestehen. Erst wenn die gemessene Laufzeit der Zone
