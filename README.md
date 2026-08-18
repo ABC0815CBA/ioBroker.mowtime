@@ -21,7 +21,11 @@ funktionsfähiger Prototyp und vor Veröffentlichung mit dem eigenen Mäher zu t
   Restbedarf mindestens `MinTime` beträgt (Hysterese).
 - Unterstützt lokale ioBroker-Sensoren, Open-Meteo und Bright Sky/DWD. Die
   Internetdienste werden höchstens alle 15 Minuten ohne API-Schlüssel abgefragt.
-- Ein lokaler Regenwert darf ein Boolean oder eine Niederschlagsmenge in mm sein.
+- Ein lokaler Regenwert darf ein Boolean oder eine Niederschlagsmenge in mm/10 min sein.
+  `weather.raining` wird aktiv, wenn dieser Wert größer als der Grenzwert
+  (standardmäßig 0,1 mm/10 min) ist. Die Tagesregenmenge steht in
+  `weather.rainToday` in mm. Bei lokalen Sensoren kann hierfür der separate
+  Datenpunkt `rainTodayState` konfiguriert werden.
   Temperatur, Regenmenge und Sonnenscheindauer werden als rollierende
   Sieben-Tage-Wetterhistorie gespeichert.
 - Das geschätzte Restwachstum jeder Zone besitzt eine eigene Hysterese: oberhalb
