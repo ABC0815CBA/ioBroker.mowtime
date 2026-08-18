@@ -1,8 +1,8 @@
 # ioBroker.mowtime
 
 Steuert einen Worx-Landroid über den vorhandenen `worx`-Adapter anhand von Wetter,
-simuliertem Graswachstum, Fläche, Boden und Schatten. **Version 0.1 ist ein
-funktionsfähiger Prototyp und vor Veröffentlichung mit dem eigenen Mäher zu testen.**
+simuliertem Graswachstum, Fläche, Boden und Schatten. Der Adapter sollte vor
+unbeaufsichtigtem Betrieb mit dem eigenen Mäher beobachtet werden.
 
 ## Funktion
 
@@ -10,9 +10,8 @@ funktionsfähiger Prototyp und vor Veröffentlichung mit dem eigenen Mäher zu t
   Anforderung ergibt 270 Minuten Wochenplan.
 - Ermittelt die seit Montag gemähte Zeit aus der Differenz von
   `mower.totalTime` zum gespeicherten Wochenanfangswert.
-- Berechnet pro Zone den Bedarf als
-  `Fläche × Wachstum × Bodenfaktor × Schattenfaktor` und wandelt ihn über die
-  Mähleistung in Sollminuten um.
+- Integriert das simulierte Wachstum dauerhaft je Teilfläche. Erreicht eine
+  Teilfläche ihren mm-Schwellwert, wird ein vollständiger Auftrag für ihre Zone angelegt.
 - Schreibt `mower.mowTimeExtend` im Bereich −100 bis +100 Prozent.
 - Schreibt eine nach Zonenbedarf gewichtete JSON-Sequenz nach
   `areas.startSequence`.
@@ -28,9 +27,9 @@ funktionsfähiger Prototyp und vor Veröffentlichung mit dem eigenen Mäher zu t
   Datenpunkt `rainTodayState` konfiguriert werden.
   Temperatur, Regenmenge und Sonnenscheindauer werden als rollierende
   Sieben-Tage-Wetterhistorie gespeichert.
-- Das geschätzte Restwachstum jeder Zone besitzt eine eigene Hysterese: oberhalb
-  von `growthStartMm` wird die Zone aktiv, unterhalb von `growthStopMm` wieder
-  inaktiv.
+- Die über `areas.actualAreaIndicator` gemessene Zonenlaufzeit reduziert den
+  offenen Auftrag. Nach einem vollständigen Zonendurchgang beginnt das Wachstum
+  aller Teilflächen dieser Zone wieder bei 0 mm.
 
 ## Installation zum Testen
 
@@ -78,7 +77,7 @@ Zahlungsdaten abgefragt.
 `history.last7Days` enthält weiterhin alle Rohdetails als JSON. Zusätzlich werden
 die letzten sieben abgeschlossenen Tage klar lesbar unter
 `history.day0` bis `history.day6` abgelegt. Jeder Tag enthält für die vier
-Worx-Zonen Datum, Sollzeit, geschätzte Istzeit, Übertrag und Teilflächenergebnisse.
+Worx-Zonen Datum, Sollzeit, gemessene Istzeit, Übertrag und Teilflächenergebnisse.
 `day0` ist der jüngste abgeschlossene Tag.
 
 ## Teilflächen und Worx-Zonen
@@ -87,24 +86,23 @@ Worx-Zonen 0–3 sind ausschließlich technische Ziele für `startSequence`.
 Biologische Eigenschaften werden in frei definierbaren Teilflächen gepflegt;
 mehrere Teilflächen können derselben Worx-Zone zugeordnet sein. Pro Teilfläche
 werden Fläche, Bodentextur, Fruchtbarkeit, Schatten, Wurzeltiefe, Regenfaktor,
-optionale Bodenfeuchte sowie Start-/Stopp-Wachstum und Mindestmähzeit erfasst.
+optionale Bodenfeuchte sowie der Wachstumsschwellwert in Millimetern erfasst.
 
 Das Teilflächenmodell führt über sieben Tageswerte eine Wasserbilanz aus
 Niederschlag und FAO-Referenz-Evapotranspiration. Temperatur-, Licht-, Wasser-
 und Fruchtbarkeitsfaktoren begrenzen das potenzielle Wachstum multiplikativ.
-Erreicht eine Teilfläche ihren Startwert in Millimetern, wird genau ein
-Flächendurchgang mit `Fläche / Mähleistung × 60` Minuten angesetzt. Eine separate
-Stopp-Wachstumsschwelle gibt es nicht. Anschließend wird der Bedarf nach
-Worx-Zone summiert und daraus die Zonenfolge erzeugt. Alte feste Zonenflächen werden automatisch als je eine
+Erreicht eine Teilfläche ihren Startwert, wird für die gesamte zugehörige Zone
+ein Durchgang mit `Zonenfläche / Mähleistung × 60` Minuten angelegt. Der Auftrag
+bleibt über Tagesgrenzen bestehen. Erst wenn die gemessene Laufzeit der Zone
+seine Sollzeit erreicht, werden alle Teilflächen der Zone auf 0 mm zurückgesetzt.
+Aus den verbleibenden Zonenzeiten wird die Zonenfolge erzeugt. Alte feste Zonenflächen werden automatisch als je eine
 Teilfläche übernommen, solange noch keine neue Teilflächentabelle konfiguriert
 ist.
 
-Um 23 Uhr wird die seit Tagesbeginn gemessene absolute Worx-Laufzeit bilanziert.
-Da Worx keine tatsächliche Laufzeit je Startzone liefert, wird die Istzeit anhand
-der Sollverteilung auf die Zonen geschätzt. Unter- oder Übererfüllung wird je
-Zone auf den Folgetag übertragen. Beispiel: 60 min Tagessoll bei 90 min Kalender
-ergeben rechnerisch −33 %. Wurden nur 30 min erreicht, werden am Folgetag
-30 min Übertrag plus 60 min neues Soll = 90 min und damit 0 % angesetzt.
+Um 23 Uhr werden Ist- und Restzeiten dokumentiert. Die Zuordnung erfolgt über
+`areas.actualAreaIndicator`; offene Zonenaufträge bleiben am Folgetag erhalten.
+Die Zustände `zones.zone0` bis `zones.zone3` zeigen Soll-, Ist- und Restzeit des
+jeweiligen Auftrags sowie die auslösende Teilfläche.
 
 ## Wichtige Annahmen
 
