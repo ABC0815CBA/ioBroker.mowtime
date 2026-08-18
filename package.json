@@ -1,6 +1,6 @@
 {
   "name": "iobroker.mowtime",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Weather and growth based mowing time controller for Worx Landroid",
   "author": "Hinrich",
   "license": "MIT",
