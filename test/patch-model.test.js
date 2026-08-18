@@ -24,3 +24,8 @@ test('zone sequence follows aggregated demand', () => {
     assert.equal(sequence.filter(zone => zone === 0).length, 4);
     assert.equal(sequence.filter(zone => zone === 1).length, 6);
 });
+
+test('growth accumulates over elapsed days and keeps the previous cycle value', () => {
+    assert.equal(model.accumulateGrowth(1.2, [0.4, 0.6], 2), 2.2);
+    assert.equal(model.accumulateGrowth(2, [1], 20), 9);
+});
