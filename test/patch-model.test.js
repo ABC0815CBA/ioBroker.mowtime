@@ -13,9 +13,9 @@ test('shade preserves more soil water in a dry hot week', () => {
 
 test('subareas aggregate into technical Worx zones', () => {
     assert.deepEqual(model.aggregateZones([
-        { mowerZone: 0, active: true, demandMinutes: 10 },
-        { mowerZone: 0, active: true, demandMinutes: 20 },
-        { mowerZone: 2, active: true, demandMinutes: 30 }
+        { mowerZone: 0, active: true, passMinutes: 10 },
+        { mowerZone: 0, active: false, passMinutes: 20 },
+        { mowerZone: 2, active: true, passMinutes: 30 }
     ]), [30, 0, 30, 0]);
 });
 
