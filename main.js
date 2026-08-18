@@ -54,6 +54,7 @@ class Mowtime extends utils.Adapter {
             'info.reason': ['string', ''], 'info.zoneSequence': ['string', ''],
             'weather.source': ['string', ''], 'weather.status': ['string', ''],
             'weather.lastSuccess': ['number', ''], 'weather.raining': ['boolean', ''],
+            'weather.rainToday': ['number', 'mm'], 'weather.rain10Minutes': ['number', 'mm'],
             'weather.temperature': ['number', '°C'], 'weather.wind': ['number', 'km/h'],
             'weather.sunshineHours': ['number', 'h'], 'history.last7Days': ['string', ''],
             'growth.simulatedMm': ['number', 'mm'],
@@ -119,6 +120,8 @@ class Mowtime extends utils.Adapter {
         if (!onlineNeeded) {
             const rainValue = await this.readValue(this.config.rainState, false);
             const numericRain = typeof rainValue === 'number' ? rainValue : (rainValue ? Number(this.config.rainThreshold) || 0.1 : 0);
+            const raining = typeof rainValue === 'number' ? numericRain > (Number(this.config.rainThreshold) || 0.1) : Boolean(rainValue);
+            const rainToday = Number(await this.readValue(this.config.rainTodayState, 0)) || 0;
             const temperature = Number(await this.readValue(this.config.temperatureState, 20));
             const sunshineHours = Number(await this.readValue(this.config.sunshineState, 0));
             const et0 = Number(await this.readValue(this.config.et0State, 0));
@@ -128,11 +131,13 @@ class Mowtime extends utils.Adapter {
             } catch { daily = []; }
             const today = new Date().toISOString().slice(0, 10);
             daily = daily.filter(day => day && day.date !== today).slice(-6);
-            daily.push({ date: today, temperatureMean: temperature, precipitation: numericRain, sunshineHours, et0 });
+            daily.push({ date: today, temperatureMean: temperature, precipitation: rainToday, sunshineHours, et0 });
             return {
                 interventionAllowed: true,
-                raining: numericRain >= (Number(this.config.rainThreshold) || 0.1),
+                raining,
                 precipitation: numericRain,
+                rain10Minutes: numericRain,
+                rainToday,
                 wind: Number(await this.readValue(this.config.windState, 0)),
                 temperature,
                 sunshineHours, daily,
@@ -166,7 +171,9 @@ class Mowtime extends utils.Adapter {
         if (rainSource === 'state') {
             const value = await this.readValue(this.config.rainState, false);
             result.precipitation = typeof value === 'number' ? value : (value ? threshold : 0);
-            result.raining = result.precipitation >= threshold;
+            result.rain10Minutes = result.precipitation;
+            result.rainToday = Number(await this.readValue(this.config.rainTodayState, 0)) || 0;
+            result.raining = typeof value === 'number' ? result.precipitation > threshold : Boolean(value);
         }
         if (windSource === 'state') result.wind = Number(await this.readValue(this.config.windState, 0));
         if (temperatureSource === 'state') result.temperature = Number(await this.readValue(this.config.temperatureState, 20));
@@ -217,7 +224,7 @@ class Mowtime extends utils.Adapter {
         const baseGrowth = Number(this.config.growthMmPerWeek) || 0;
         const weather = await this.getWeather();
         const patches = await this.getPatches();
-        const patchRainDetected = patches.some(patch => Number.isFinite(patch.ownRainMm) && patch.ownRainMm >= (Number(this.config.rainThreshold) || 0.1));
+        const patchRainDetected = patches.some(patch => Number.isFinite(patch.ownRainMm) && patch.ownRainMm > (Number(this.config.rainThreshold) || 0.1));
         const patchResults = [];
         const simulations = patches.map(patch => {
             const days = (weather.daily || []).map(day => ({ ...day }));
@@ -301,6 +308,8 @@ class Mowtime extends utils.Adapter {
             this.setStateAsync('info.reason', decision.reason, true), this.setStateAsync('info.zoneSequence', JSON.stringify(sequence), true), this.setStateAsync('control.recalculate', false, true)
             , this.setStateAsync('weather.source', weather.source, true), this.setStateAsync('weather.status', weather.status, true)
             , this.setStateAsync('weather.raining', Boolean(weather.raining), true), this.setStateAsync('weather.temperature', Number(weather.temperature), true), this.setStateAsync('weather.wind', Number(weather.wind), true)
+            , this.setStateAsync('weather.rainToday', Number(weather.rainToday) || 0, true)
+            , this.setStateAsync('weather.rain10Minutes', Number(weather.rain10Minutes ?? weather.precipitation) || 0, true)
             , this.setStateAsync('weather.sunshineHours', Number(weather.sunshineHours) || 0, true), this.setStateAsync('growth.simulatedMm', patchResults.length ? Math.max(...patchResults.map(p => p.growthMm)) : 0, true)
             , this.setStateAsync('history.last7Days', JSON.stringify({ updated: new Date().toISOString(), weather: weather.daily || [], patches: patchResults, zoneDemandMinutes: desiredByZone, plannedMinutes: planned, plannedWeekMinutes: plannedWeek }), true)
         ]);
