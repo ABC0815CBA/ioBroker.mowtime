@@ -5,6 +5,7 @@ const { growthFactors, extensionForTarget, totalTimeDeltaMinutes, clamp } = requ
 const { remainingCalendarMinutes, calendarPosition, weekKey } = require('./lib/calendar');
 const { buildOpenMeteoUrl, parseOpenMeteo } = require('./lib/openmeteo');
 const { rainLockEnabled, growthWeatherAdjustmentEnabled, sourceFor, neutralWeather, weatherControlValue } = require('./lib/sources');
+const { normalizeSoilType, soilWaterBalance } = require('./lib/soil');
 
 class WorxMowtime extends utils.Adapter {
     constructor(options = {}) {
@@ -58,6 +59,9 @@ class WorxMowtime extends utils.Adapter {
             await state(`zones.${zone}.moistureFactor`, `Zone ${zone} moisture factor`, 'number', 'value', null, 0);
             await state(`zones.${zone}.lightFactor`, `Zone ${zone} light factor`, 'number', 'value', null, 0);
             await state(`zones.${zone}.soilFactor`, `Zone ${zone} soil quality factor`, 'number', 'value', null, 1);
+            await state(`zones.${zone}.soilType`, `Zone ${zone} soil type`, 'string', 'text', null, 'loam');
+            await state(`zones.${zone}.waterStorageMm`, `Zone ${zone} calculated soil water storage`, 'number', 'value', 'mm', 0);
+            await state(`zones.${zone}.waterCapacityMm`, `Zone ${zone} soil water capacity`, 'number', 'value', 'mm', 0);
             await state(`zones.${zone}.growthMultiplier`, `Zone ${zone} total growth multiplier`, 'number', 'value', null, 0);
             await state(`zones.${zone}.growthPercent`, `Zone ${zone} growth adjustment`, 'number', 'value', '%', 0);
             await state(`zones.${zone}.targetMinutes`, `Zone ${zone} target this week`, 'number', 'value.interval', 'min', 0);
@@ -194,6 +198,8 @@ class WorxMowtime extends utils.Adapter {
         } : neutralWeather(this.config);
         weather.precipitation = rainEnabled && sources.rain === 'openmeteo' ? onlineWeather.precipitation : NaN;
         weather.fetchedAt = rainEnabled && sources.rain === 'openmeteo' ? onlineWeather.fetchedAt : 0;
+        weather.precipitationHistory = growthEnabled && sources.moisture === 'openmeteo' ? onlineWeather.precipitationHistory : [];
+        weather.et0History = growthEnabled && sources.moisture === 'openmeteo' ? onlineWeather.et0History : [];
         const sourceStatus = [
             `rain=${rainEnabled ? sources.rain : 'disabled'}`,
             `temperature=${growthEnabled ? sources.temperature : 'neutral'}`,
@@ -281,7 +287,13 @@ class WorxMowtime extends utils.Adapter {
         let totalTarget = 0;
         let totalActual = 0;
         for (let zone = 1; zone <= 4; zone++) {
-            const factors = growthFactors(weather, this.config[`zone${zone}Soil`], this.config);
+            const soilType = normalizeSoilType(this.config[`zone${zone}Soil`]);
+            const useWaterBalance = growthWeatherAdjustmentEnabled(this.config) && this.sourceFor('moisture') === 'openmeteo';
+            const water = useWaterBalance ? soilWaterBalance(weather.precipitationHistory, weather.et0History, soilType) : null;
+            // Soil type affects growth through water storage, never as a direct
+            // zero-to-two multiplier. A local moisture sensor already measures
+            // this outcome and therefore uses the configured moisture curve.
+            const factors = growthFactors(weather, 1, this.config, water?.factor);
             const target = Math.max(0, Number(this.config[`zone${zone}Minutes`]) || 0) * factors.multiplier;
             const actual = Number((await this.getStateAsync(`zones.${zone}.actualMinutes`))?.val) || 0;
             await Promise.all([
@@ -289,6 +301,9 @@ class WorxMowtime extends utils.Adapter {
                 this.setStateAsync(`zones.${zone}.moistureFactor`, factors.moisture, true),
                 this.setStateAsync(`zones.${zone}.lightFactor`, factors.light, true),
                 this.setStateAsync(`zones.${zone}.soilFactor`, factors.soil, true),
+                this.setStateAsync(`zones.${zone}.soilType`, soilType, true),
+                this.setStateAsync(`zones.${zone}.waterStorageMm`, water?.storageMm || 0, true),
+                this.setStateAsync(`zones.${zone}.waterCapacityMm`, water?.capacityMm || 0, true),
                 this.setStateAsync(`zones.${zone}.growthMultiplier`, factors.multiplier, true),
                 this.setStateAsync(`zones.${zone}.growthPercent`, factors.percent, true),
                 this.setStateAsync(`zones.${zone}.targetMinutes`, target, true),

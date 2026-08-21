@@ -9,7 +9,7 @@ Der berechnete Ausgang steht unter `mowtime.0.Worx.MOwTimeExtended` sowie unter 
 - Regensperre: Änderung eines kumulativen Regenzählers je Auswertungsintervall. Bei mehr als der konfigurierten Schwelle (Standard `0,1 mm/5 min`) wird `-100 %` gesetzt. Die Sperre endet nach der konfigurierten Trockenzeit (Standard 3 Stunden).
 - Getrennte Schalter: Regensperre und Wetter-Wachstumsanpassung können unabhängig aktiviert werden. Aktiver Regen hat bei eingeschalteter Regensperre immer Vorrang und setzt `-100 %`. Liegt keine aktive Regensperre vor, ist der Ausgang bei ausgeschalteter Wetteranpassung immer `0 %`; nur bei eingeschalteter Wetteranpassung wird der berechnete Prognosewert ausgegeben.
 - Wetterquellen: Regen, Temperatur, Bodenfeuchte und Licht können jeweils unabhängig aus einem eigenen ioBroker-Datenpunkt oder von Open-Meteo ohne API-Schlüssel bezogen werden. Sobald mindestens ein Wert Open-Meteo nutzt, werden Breitengrad und Längengrad benötigt; die Abfrage erfolgt standardmäßig höchstens einmal pro Stunde.
-- 30-Tage-Modell: rollende Mittelwerte aus Temperatur, Bodenfeuchte und Licht. Temperatur-, Feuchte-, Licht- und Bodengütefaktor werden für jede der vier Zonen separat ausgegeben. Ihr Produkt ist der Wachstums-Multiplikator (0–2 bzw. -100 bis +100 %).
+- 30-Tage-Modell: Temperatur und Licht sowie eine chronologische Bodenwasserbilanz werden ausgewertet. Die Bodenarten Sand, sandiger Lehm, Lehm/Mischboden und toniger Boden besitzen unterschiedliche Speicherkapazität, Versickerung und Infiltration. Regenzeitpunkte und Trockenpausen wirken dadurch anders als eine reine Regensumme.
 - Wochensteuerung: Basis-Sollzeit je Zone × Wachstums-Multiplikator ergibt das Wochen-Soll. `totalTime` ist beim Worx-Adapter ein kumulativer Stundenzähler; seine positive Differenz wird mit 60 in Minuten umgerechnet und während eines konfigurierten Mähstatus der aktiven Zone zugerechnet. Montag beginnt eine neue Bilanz.
 - Kalenderprognose: Beide Worx-Wochenpläne (`calJson`, `calJson2`) liefern die ab jetzt noch geplanten Minuten. Daraus wird ein Wert von `-100 %` bis `+100 %` berechnet, der das verbleibende Defizit möglichst genau ausgleicht.
 - Schreibbegrenzung: Die reguläre Berechnung läuft nur einmal je Lücke zwischen zwei Mähfenstern. Der externe Worx-Datenpunkt wird ausschließlich geschrieben, wenn sich der Prozentwert tatsächlich geändert hat. Die Regenprüfung bleibt im eingestellten Intervall aktiv und darf als Sicherheitsfunktion sofort `-100 %` setzen.
@@ -28,9 +28,11 @@ Auf der Admin-Seite kann die Quelle für jeden Wetterwert einzeln gewählt werde
 
 ## Berechnung
 
-Die Klima-Faktoren liegen jeweils zwischen 0 und 1. Bei Temperatur ≤5 °C oder ≥35 °C sowie extremer Trockenheit/Überschwemmung ist der entsprechende Faktor 0. Die Bodengüte ist 0–2. Das Produkt wird auf 0–2 begrenzt:
+Die Klima-Faktoren liegen jeweils zwischen 0 und 1. Bei Temperatur ≤5 °C oder ≥35 °C sowie extremer Trockenheit/Staunässe ist der entsprechende Faktor 0. Die Bodenart ist kein direkter Multiplikator, sondern bestimmt Wasserspeicher und Entwässerung:
 
-`Multiplikator = Temperatur × Feuchte × Licht × Bodengüte`
+`Multiplikator = Temperatur × Bodenwasserstress × Licht`
+
+Bei Open-Meteo wird der Speicher mit 30 Tagen stündlichem Niederschlag und FAO-Referenzverdunstung fortgeschrieben. Bei einem eigenen Bodenfeuchte-Datenpunkt wird der Messwert direkt verwendet. Alte numerische Bodenwerte werden migriert: `0 = Sand`, `1 = Lehm/Mischboden`, `2 = toniger Boden`; keiner dieser Werte setzt das Wachstum pauschal auf null.
 
 `MowTimeExtended = clamp((Rest-Soll / restliche Kalenderzeit - 1) × 100, -100, +100)`
 
