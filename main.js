@@ -4,7 +4,7 @@ const utils = require('@iobroker/adapter-core');
 const { growthFactors, extensionForTarget, totalTimeDeltaMinutes, clamp } = require('./lib/model');
 const { remainingCalendarMinutes, calendarPosition, weekKey } = require('./lib/calendar');
 const { buildOpenMeteoUrl, parseOpenMeteo } = require('./lib/openmeteo');
-const { weatherAdjustmentsEnabled, sourceFor, neutralWeather } = require('./lib/sources');
+const { rainLockEnabled, growthWeatherAdjustmentEnabled, sourceFor, neutralWeather } = require('./lib/sources');
 
 class WorxMowtime extends utils.Adapter {
     constructor(options = {}) {
@@ -80,10 +80,6 @@ class WorxMowtime extends utils.Adapter {
 
     sourceFor(kind) {
         return sourceFor(this.config, kind);
-    }
-
-    weatherAdjustmentsEnabled() {
-        return weatherAdjustmentsEnabled(this.config);
     }
 
     async ensureWeek() {
@@ -177,31 +173,35 @@ class WorxMowtime extends utils.Adapter {
     }
 
     async updateWeather() {
-        if (!this.weatherAdjustmentsEnabled()) {
-            await this.setStateAsync('weather.source', 'disabled', true);
-            return neutralWeather(this.config);
-        }
+        const rainEnabled = rainLockEnabled(this.config);
+        const growthEnabled = growthWeatherAdjustmentEnabled(this.config);
         const sources = {
             rain: this.sourceFor('rain'),
             temperature: this.sourceFor('temperature'),
             moisture: this.sourceFor('moisture'),
             light: this.sourceFor('light')
         };
-        const needsOnline = Object.values(sources).includes('openmeteo');
-        const needsLocalGrowth = ['temperature', 'moisture', 'light'].some(kind => sources[kind] === 'states');
+        const needsOnline = (rainEnabled && sources.rain === 'openmeteo') || (growthEnabled && ['temperature', 'moisture', 'light'].some(kind => sources[kind] === 'openmeteo'));
+        const needsLocalGrowth = growthEnabled && ['temperature', 'moisture', 'light'].some(kind => sources[kind] === 'states');
         const [onlineWeather, localWeather] = await Promise.all([
             needsOnline ? this.updateOnlineWeather() : Promise.resolve({}),
             needsLocalGrowth ? this.updateLocalWeather() : Promise.resolve({})
         ]);
-        const weather = {
+        const weather = growthEnabled ? {
             temperature: sources.temperature === 'openmeteo' ? onlineWeather.temperature : localWeather.temperature,
             moisture: sources.moisture === 'openmeteo' ? onlineWeather.moisture : localWeather.moisture,
-            light: sources.light === 'openmeteo' ? onlineWeather.light : localWeather.light,
-            precipitation: sources.rain === 'openmeteo' ? onlineWeather.precipitation : NaN,
-            fetchedAt: sources.rain === 'openmeteo' ? onlineWeather.fetchedAt : 0
-        };
-        await this.setStateAsync('weather.source', Object.entries(sources).map(([key, value]) => `${key}=${value}`).join(','), true);
-        if (![weather.temperature, weather.moisture, weather.light].every(Number.isFinite)) {
+            light: sources.light === 'openmeteo' ? onlineWeather.light : localWeather.light
+        } : neutralWeather(this.config);
+        weather.precipitation = rainEnabled && sources.rain === 'openmeteo' ? onlineWeather.precipitation : NaN;
+        weather.fetchedAt = rainEnabled && sources.rain === 'openmeteo' ? onlineWeather.fetchedAt : 0;
+        const sourceStatus = [
+            `rain=${rainEnabled ? sources.rain : 'disabled'}`,
+            `temperature=${growthEnabled ? sources.temperature : 'neutral'}`,
+            `moisture=${growthEnabled ? sources.moisture : 'neutral'}`,
+            `light=${growthEnabled ? sources.light : 'neutral'}`
+        ].join(',');
+        await this.setStateAsync('weather.source', sourceStatus, true);
+        if (growthEnabled && ![weather.temperature, weather.moisture, weather.light].every(Number.isFinite)) {
             throw new Error('At least one selected growth weather source has no usable value');
         }
         if (Number.isFinite(weather.temperature)) await this.setStateAsync('weather.temperature30d', weather.temperature, true);
@@ -211,7 +211,7 @@ class WorxMowtime extends utils.Adapter {
     }
 
     async updateRain(onlinePrecipitation = NaN, onlineTimestamp = 0) {
-        if (!this.weatherAdjustmentsEnabled()) {
+        if (!rainLockEnabled(this.config)) {
             await this.setStateAsync('rain.delta', 0, true);
             await this.setStateAsync('rain.locked', false, true);
             await this.setStateAsync('rain.lastRain', 0, true);

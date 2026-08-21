@@ -19,7 +19,7 @@
     "type": "garden",
     "tier": 2,
     "news": {
-      "1.2.0": {"en": "Added a weather adjustment switch and individual sources for every weather value", "de": "Schalter für Wetteranpassungen und einzelne Quellenwahl je Wetterwert ergänzt"},
+      "1.2.0": {"en": "Added separate rain and growth switches plus individual sources for every weather value", "de": "Getrennte Schalter für Regensperre und Wetterwachstum sowie einzelne Quellenwahl je Wetterwert ergänzt"},
       "1.1.0": {"en": "Added Open-Meteo as an alternative weather source", "de": "Open-Meteo als alternative Wetterquelle ergänzt"},
       "1.0.0": {"en": "New rain, growth, zone and calendar based controller", "de": "Neue regen-, wachstums-, zonen- und kalenderbasierte Steuerung"}
     },
@@ -27,7 +27,8 @@
     "globalDependencies": [{"admin": ">=6.0.0"}]
   },
   "native": {
-    "enableWeatherAdjustments": true,
+    "enableRainLock": true,
+    "enableGrowthWeatherAdjustment": true,
     "weatherSource": "states",
     "rainSource": "",
     "temperatureSource": "",
