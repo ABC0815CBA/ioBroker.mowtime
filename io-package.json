@@ -1,7 +1,7 @@
 {
   "common": {
     "name": "mowtime",
-    "version": "1.2.0",
+    "version": "1.3.0",
     "titleLang": {"en": "Worx mowing time", "de": "Worx Mähzeit"},
     "desc": {"en": "Controls Worx mowing time using rain, growth and weekly targets", "de": "Steuert die Worx-Mähzeit anhand von Regen, Wachstum und Wochenzielen"},
     "authors": ["Hinrich"],
@@ -19,6 +19,7 @@
     "type": "garden",
     "tier": 2,
     "news": {
+      "1.3.0": {"en": "Replaced the direct soil multiplier with a 30-day soil water balance", "de": "Direkten Bodenmultiplikator durch eine 30-Tage-Bodenwasserbilanz ersetzt"},
       "1.2.0": {"en": "Added separate rain and growth switches plus individual sources for every weather value", "de": "Getrennte Schalter für Regensperre und Wetterwachstum sowie einzelne Quellenwahl je Wetterwert ergänzt"},
       "1.1.0": {"en": "Added Open-Meteo as an alternative weather source", "de": "Open-Meteo als alternative Wetterquelle ergänzt"},
       "1.0.0": {"en": "New rain, growth, zone and calendar based controller", "de": "Neue regen-, wachstums-, zonen- und kalenderbasierte Steuerung"}
@@ -55,10 +56,10 @@
     "zone2Minutes": 180,
     "zone3Minutes": 180,
     "zone4Minutes": 180,
-    "zone1Soil": 1,
-    "zone2Soil": 1,
-    "zone3Soil": 1,
-    "zone4Soil": 1,
+    "zone1Soil": "loam",
+    "zone2Soil": "loam",
+    "zone3Soil": "loam",
+    "zone4Soil": "loam",
     "tempMin": 5,
     "tempOptLow": 15,
     "tempOptHigh": 25,

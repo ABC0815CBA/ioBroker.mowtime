@@ -17,13 +17,17 @@ test('converts Open-Meteo soil moisture and radiation to model units', () => {
         hourly: {
             temperature_2m: [10, 20],
             soil_moisture_0_to_1cm: [0.3, 0.5],
-            shortwave_radiation: [100, 300]
+            shortwave_radiation: [100, 300],
+            precipitation: [0, 2],
+            et0_fao_evapotranspiration: [0.1, 0.2]
         }
     });
     assert.equal(result.temperature, 15);
     assert.equal(result.moisture, 40);
     assert.equal(result.light, 200 * RADIATION_TO_LUX);
     assert.equal(result.precipitation, 0.2);
+    assert.deepEqual(result.precipitationHistory, [0, 2]);
+    assert.deepEqual(result.et0History, [0.1, 0.2]);
 });
 
 test('rejects incomplete API responses', () => {

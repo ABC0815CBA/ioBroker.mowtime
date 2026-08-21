@@ -42,13 +42,13 @@
       "label": {"de": "Zonen", "en": "Zones"},
       "items": {
         "zone1Minutes": {"type": "number", "label": {"de": "Zone 1 Basis-Sollzeit (min/Woche)", "en": "Zone 1 base target (min/week)"}, "min": 0},
-        "zone1Soil": {"type": "number", "label": {"de": "Zone 1 Bodengüte (0–2)", "en": "Zone 1 soil quality (0–2)"}, "min": 0, "max": 2, "step": 0.05},
+        "zone1Soil": {"type": "select", "label": {"de": "Zone 1 Bodenart", "en": "Zone 1 soil type"}, "options": [{"label": {"de": "Sand", "en": "Sand"}, "value": "sand"}, {"label": {"de": "Sandiger Lehm", "en": "Sandy loam"}, "value": "sandyLoam"}, {"label": {"de": "Lehm/Mischboden", "en": "Loam"}, "value": "loam"}, {"label": {"de": "Toniger Boden", "en": "Clay"}, "value": "clay"}]},
         "zone2Minutes": {"type": "number", "label": {"de": "Zone 2 Basis-Sollzeit (min/Woche)", "en": "Zone 2 base target (min/week)"}, "min": 0},
-        "zone2Soil": {"type": "number", "label": {"de": "Zone 2 Bodengüte (0–2)", "en": "Zone 2 soil quality (0–2)"}, "min": 0, "max": 2, "step": 0.05},
+        "zone2Soil": {"type": "select", "label": {"de": "Zone 2 Bodenart", "en": "Zone 2 soil type"}, "options": [{"label": {"de": "Sand", "en": "Sand"}, "value": "sand"}, {"label": {"de": "Sandiger Lehm", "en": "Sandy loam"}, "value": "sandyLoam"}, {"label": {"de": "Lehm/Mischboden", "en": "Loam"}, "value": "loam"}, {"label": {"de": "Toniger Boden", "en": "Clay"}, "value": "clay"}]},
         "zone3Minutes": {"type": "number", "label": {"de": "Zone 3 Basis-Sollzeit (min/Woche)", "en": "Zone 3 base target (min/week)"}, "min": 0},
-        "zone3Soil": {"type": "number", "label": {"de": "Zone 3 Bodengüte (0–2)", "en": "Zone 3 soil quality (0–2)"}, "min": 0, "max": 2, "step": 0.05},
+        "zone3Soil": {"type": "select", "label": {"de": "Zone 3 Bodenart", "en": "Zone 3 soil type"}, "options": [{"label": {"de": "Sand", "en": "Sand"}, "value": "sand"}, {"label": {"de": "Sandiger Lehm", "en": "Sandy loam"}, "value": "sandyLoam"}, {"label": {"de": "Lehm/Mischboden", "en": "Loam"}, "value": "loam"}, {"label": {"de": "Toniger Boden", "en": "Clay"}, "value": "clay"}]},
         "zone4Minutes": {"type": "number", "label": {"de": "Zone 4 Basis-Sollzeit (min/Woche)", "en": "Zone 4 base target (min/week)"}, "min": 0},
-        "zone4Soil": {"type": "number", "label": {"de": "Zone 4 Bodengüte (0–2)", "en": "Zone 4 soil quality (0–2)"}, "min": 0, "max": 2, "step": 0.05}
+        "zone4Soil": {"type": "select", "label": {"de": "Zone 4 Bodenart", "en": "Zone 4 soil type"}, "options": [{"label": {"de": "Sand", "en": "Sand"}, "value": "sand"}, {"label": {"de": "Sandiger Lehm", "en": "Sandy loam"}, "value": "sandyLoam"}, {"label": {"de": "Lehm/Mischboden", "en": "Loam"}, "value": "loam"}, {"label": {"de": "Toniger Boden", "en": "Clay"}, "value": "clay"}]}
       }
     },
     "model": {
