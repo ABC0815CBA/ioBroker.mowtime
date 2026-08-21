@@ -1,6 +1,6 @@
 {
   "name": "iobroker.mowtime",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Weather and growth based mowing time control for Worx Landroid",
   "author": "Hinrich",
   "license": "MIT",
@@ -8,7 +8,7 @@
   "engines": { "node": ">=18" },
   "scripts": {
     "test": "node --test test/*.test.js",
-    "check": "node --check main.js && node --check lib/model.js && node --check lib/calendar.js && node --check lib/openmeteo.js"
+    "check": "node --check main.js && node --check lib/model.js && node --check lib/calendar.js && node --check lib/openmeteo.js && node --check lib/sources.js"
   },
   "dependencies": {
     "@iobroker/adapter-core": "^3.2.3"
