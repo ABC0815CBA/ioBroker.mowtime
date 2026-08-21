@@ -1,8 +1,9 @@
 'use strict';
 
 const utils = require('@iobroker/adapter-core');
-const { growthFactors, extensionForTarget, clamp } = require('./lib/model');
+const { growthFactors, extensionForTarget, totalTimeDeltaMinutes, clamp } = require('./lib/model');
 const { remainingCalendarMinutes, calendarPosition, weekKey } = require('./lib/calendar');
+const { buildOpenMeteoUrl, parseOpenMeteo } = require('./lib/openmeteo');
 
 class WorxMowtime extends utils.Adapter {
     constructor(options = {}) {
@@ -35,10 +36,16 @@ class WorxMowtime extends utils.Adapter {
         await state('weather.temperature30d', 'Rolling temperature mean', 'number', 'value.temperature', '°C', 0);
         await state('weather.moisture30d', 'Rolling soil moisture mean', 'number', 'value.humidity', '%', 0);
         await state('weather.light30d', 'Rolling light mean', 'number', 'value.brightness', 'lx', 0);
+        await state('weather.source', 'Active weather source', 'string', 'text', null, 'states');
+        await state('weather.onlineLastSuccess', 'Last successful online weather update', 'number', 'date', null, 0);
+        await state('weather.onlineError', 'Online weather error', 'string', 'text', null, '');
         await state('internal.samples', 'Rolling weather samples', 'string', 'json', null, '[]');
+        await state('internal.onlineSnapshot', 'Cached Open-Meteo snapshot', 'string', 'json', null, '');
+        await state('internal.lastOnlineRainTimestamp', 'Last processed Open-Meteo rain timestamp', 'number', 'date', null, 0);
         await state('internal.lastRainValue', 'Previous cumulative rainfall', 'number', 'value', 'mm', -1);
         await state('internal.week', 'ISO week', 'string', 'text', null, '');
-        await state('internal.lastTotalTime', 'Previous totalTime value', 'number', 'value.interval', 'min', 0);
+        await state('internal.lastTotalTime', 'Previous totalTime value', 'number', 'value.interval', 'h', 0);
+        await this.extendObjectAsync('internal.lastTotalTime', { common: { unit: 'h' } });
         await state('internal.lastCalculationGap', 'Last calculated calendar gap', 'string', 'text', null, '');
         await state('internal.plannedExtension', 'Planned extension without rain override', 'number', 'value', '%', 0);
         await state('internal.plannedReason', 'Planned control reason', 'string', 'text', null, 'initializing');
@@ -90,10 +97,10 @@ class WorxMowtime extends utils.Adapter {
         const zone = Math.trunc(await this.getForeignNumber(this.config.zoneStateId));
         if (!mowing || zone < 1 || zone > 4) return;
         const current = Number((await this.getStateAsync(`zones.${zone}.actualMinutes`))?.val) || 0;
-        await this.setStateAsync(`zones.${zone}.actualMinutes`, current + Math.min(total - previous, 60), true);
+        await this.setStateAsync(`zones.${zone}.actualMinutes`, current + totalTimeDeltaMinutes(total, previous), true);
     }
 
-    async updateWeather() {
+    async updateLocalWeather() {
         const now = Date.now();
         const temperature = await this.getForeignNumber(this.config.temperatureStateId);
         const moisture = await this.getForeignNumber(this.config.moistureStateId);
@@ -112,12 +119,64 @@ class WorxMowtime extends utils.Adapter {
         return weather;
     }
 
-    async updateRain() {
-        const current = await this.getForeignNumber(this.config.rainStateId);
+    async updateOnlineWeather() {
+        const lastSuccess = Number((await this.getStateAsync('weather.onlineLastSuccess'))?.val) || 0;
+        const updateMs = Math.max(15, Number(this.config.onlineUpdateMinutes) || 60) * 60000;
+        const cachedState = await this.getStateAsync('internal.onlineSnapshot');
+        if (lastSuccess && Date.now() - lastSuccess < updateMs && cachedState?.val) {
+            try { return JSON.parse(cachedState.val); } catch { /* fetch a fresh snapshot */ }
+        }
+        const latitude = Number(this.config.latitude);
+        const longitude = Number(this.config.longitude);
+        if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90 || !Number.isFinite(longitude) || longitude < -180 || longitude > 180) {
+            throw new Error('Open-Meteo latitude or longitude is invalid');
+        }
+        try {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 15000);
+            let response;
+            try {
+                response = await fetch(buildOpenMeteoUrl(latitude, longitude), { signal: controller.signal });
+            } finally {
+                clearTimeout(timeout);
+            }
+            if (!response.ok) throw new Error(`Open-Meteo HTTP ${response.status}`);
+            const snapshot = { ...parseOpenMeteo(await response.json()), fetchedAt: Date.now() };
+            await this.setStateAsync('internal.onlineSnapshot', JSON.stringify(snapshot), true);
+            await this.setStateAsync('weather.onlineLastSuccess', Date.now(), true);
+            await this.setStateAsync('weather.onlineError', '', true);
+            return snapshot;
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            await this.setStateAsync('weather.onlineError', message, true);
+            this.log.warn(`Open-Meteo update failed: ${message}`);
+            if (cachedState?.val) {
+                try { return JSON.parse(cachedState.val); } catch { /* report original error */ }
+            }
+            throw error;
+        }
+    }
+
+    async updateWeather() {
+        const online = this.config.weatherSource === 'openmeteo';
+        await this.setStateAsync('weather.source', online ? 'openmeteo' : 'states', true);
+        const weather = online ? await this.updateOnlineWeather() : await this.updateLocalWeather();
+        if (Number.isFinite(weather.temperature)) await this.setStateAsync('weather.temperature30d', weather.temperature, true);
+        if (Number.isFinite(weather.moisture)) await this.setStateAsync('weather.moisture30d', weather.moisture, true);
+        if (Number.isFinite(weather.light)) await this.setStateAsync('weather.light30d', weather.light, true);
+        return weather;
+    }
+
+    async updateRain(onlinePrecipitation = NaN, onlineTimestamp = 0) {
+        const online = this.config.weatherSource === 'openmeteo';
+        const current = online ? Number(onlinePrecipitation) : await this.getForeignNumber(this.config.rainStateId);
         const previousState = await this.getStateAsync('internal.lastRainValue');
         const previous = Number(previousState?.val);
-        const delta = Number.isFinite(current) && Number.isFinite(previous) && previous >= 0 ? Math.max(0, current - previous) : 0;
-        if (Number.isFinite(current)) await this.setStateAsync('internal.lastRainValue', current, true);
+        const lastOnlineTimestamp = Number((await this.getStateAsync('internal.lastOnlineRainTimestamp'))?.val) || 0;
+        const isNewOnlineValue = online && Number(onlineTimestamp) > lastOnlineTimestamp;
+        const delta = online ? isNewOnlineValue ? Math.max(0, current || 0) : 0 : Number.isFinite(current) && Number.isFinite(previous) && previous >= 0 ? Math.max(0, current - previous) : 0;
+        if (isNewOnlineValue) await this.setStateAsync('internal.lastOnlineRainTimestamp', Number(onlineTimestamp), true);
+        if (!online && Number.isFinite(current)) await this.setStateAsync('internal.lastRainValue', current, true);
         await this.setStateAsync('rain.delta', delta, true);
         const threshold = Math.max(0, Number(this.config.rainThresholdMm) || 0.1);
         const wasLocked = Boolean((await this.getStateAsync('rain.locked'))?.val);
@@ -135,8 +194,16 @@ class WorxMowtime extends utils.Adapter {
         this.lastEvaluation = Date.now();
         await this.ensureWeek();
         await this.updateActualTimes();
-        const [weather, rainLocked, calendar1, calendar2] = await Promise.all([
-            this.updateWeather(), this.updateRain(), this.getForeignValue(this.config.calendarStateId), this.getForeignValue(this.config.calendar2StateId)
+        let weather;
+        try {
+            weather = await this.updateWeather();
+        } catch (error) {
+            this.log.error(`No usable weather data: ${error instanceof Error ? error.message : error}`);
+            await this.writeOutputIfChanged(-100, 'weather unavailable');
+            return;
+        }
+        const [rainLocked, calendar1, calendar2] = await Promise.all([
+            this.updateRain(weather.precipitation, weather.fetchedAt), this.getForeignValue(this.config.calendarStateId), this.getForeignValue(this.config.calendar2StateId)
         ]);
         const calendars = [calendar1, calendar2];
         const position = calendarPosition(calendars);
