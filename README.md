@@ -7,7 +7,8 @@ Der berechnete Ausgang steht unter `mowtime.0.Worx.MOwTimeExtended` sowie unter 
 ## Funktionen
 
 - Regensperre: Änderung eines kumulativen Regenzählers je Auswertungsintervall. Bei mehr als der konfigurierten Schwelle (Standard `0,1 mm/5 min`) wird `-100 %` gesetzt. Die Sperre endet nach der konfigurierten Trockenzeit (Standard 3 Stunden).
-- Wetterquelle: Wahlweise eigene ioBroker-Datenpunkte oder Open-Meteo ohne API-Schlüssel. Für Open-Meteo werden Breitengrad und Längengrad konfiguriert; die Abfrage erfolgt standardmäßig höchstens einmal pro Stunde.
+- Getrennte Schalter: Regensperre und Wetter-Wachstumsanpassung können unabhängig aktiviert werden. Aktiver Regen hat bei eingeschalteter Regensperre immer Vorrang und setzt `-100 %`. Liegt keine aktive Regensperre vor, ist der Ausgang bei ausgeschalteter Wetteranpassung immer `0 %`; nur bei eingeschalteter Wetteranpassung wird der berechnete Prognosewert ausgegeben.
+- Wetterquellen: Regen, Temperatur, Bodenfeuchte und Licht können jeweils unabhängig aus einem eigenen ioBroker-Datenpunkt oder von Open-Meteo ohne API-Schlüssel bezogen werden. Sobald mindestens ein Wert Open-Meteo nutzt, werden Breitengrad und Längengrad benötigt; die Abfrage erfolgt standardmäßig höchstens einmal pro Stunde.
 - 30-Tage-Modell: rollende Mittelwerte aus Temperatur, Bodenfeuchte und Licht. Temperatur-, Feuchte-, Licht- und Bodengütefaktor werden für jede der vier Zonen separat ausgegeben. Ihr Produkt ist der Wachstums-Multiplikator (0–2 bzw. -100 bis +100 %).
 - Wochensteuerung: Basis-Sollzeit je Zone × Wachstums-Multiplikator ergibt das Wochen-Soll. `totalTime` ist beim Worx-Adapter ein kumulativer Stundenzähler; seine positive Differenz wird mit 60 in Minuten umgerechnet und während eines konfigurierten Mähstatus der aktiven Zone zugerechnet. Montag beginnt eine neue Bilanz.
 - Kalenderprognose: Beide Worx-Wochenpläne (`calJson`, `calJson2`) liefern die ab jetzt noch geplanten Minuten. Daraus wird ein Wert von `-100 %` bis `+100 %` berechnet, der das verbleibende Defizit möglichst genau ausgleicht.
@@ -23,7 +24,7 @@ iobroker url https://github.com/ABC0815CBA/ioBroker.mowtime
 
 Danach Instanz anlegen und auf der Konfigurationsseite die Datenpunkte auswählen. `rainStateId` muss kumulative Millimeter, `totalTimeStateId` kumulative Stunden und `zoneStateId` eine Zonennummer 1–4 liefern.
 
-Alternativ kann auf der Admin-Seite `Open-Meteo` gewählt werden. Der Adapter lädt aktuellen Niederschlag sowie 30 Tage stündliche Temperatur, oberflächennahe Bodenfeuchte und Solarstrahlung. Bodenfeuchte wird von m³/m³ nach Prozent umgerechnet; Solarstrahlung wird mit `126,7 lx je W/m²` näherungsweise in Lux überführt. Der letzte erfolgreiche Abruf wird zwischengespeichert. Ohne jemals erfolgreich geladene Wetterdaten wird aus Sicherheitsgründen `-100 %` ausgegeben.
+Auf der Admin-Seite kann die Quelle für jeden Wetterwert einzeln gewählt werden. Bei Open-Meteo lädt der Adapter aktuellen Niederschlag sowie 30 Tage stündliche Temperatur, oberflächennahe Bodenfeuchte und Solarstrahlung. Bodenfeuchte wird von m³/m³ nach Prozent umgerechnet; Solarstrahlung wird mit `126,7 lx je W/m²` näherungsweise in Lux überführt. Der letzte erfolgreiche Abruf wird zwischengespeichert. Ohne jemals erfolgreich geladene benötigte Wetterdaten wird aus Sicherheitsgründen `-100 %` ausgegeben.
 
 ## Berechnung
 
