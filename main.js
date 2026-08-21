@@ -1,7 +1,7 @@
 'use strict';
 
 const utils = require('@iobroker/adapter-core');
-const { growthFactors, extensionForTarget, clamp } = require('./lib/model');
+const { growthFactors, extensionForTarget, totalTimeDeltaMinutes, clamp } = require('./lib/model');
 const { remainingCalendarMinutes, calendarPosition, weekKey } = require('./lib/calendar');
 const { buildOpenMeteoUrl, parseOpenMeteo } = require('./lib/openmeteo');
 
@@ -44,7 +44,8 @@ class WorxMowtime extends utils.Adapter {
         await state('internal.lastOnlineRainTimestamp', 'Last processed Open-Meteo rain timestamp', 'number', 'date', null, 0);
         await state('internal.lastRainValue', 'Previous cumulative rainfall', 'number', 'value', 'mm', -1);
         await state('internal.week', 'ISO week', 'string', 'text', null, '');
-        await state('internal.lastTotalTime', 'Previous totalTime value', 'number', 'value.interval', 'min', 0);
+        await state('internal.lastTotalTime', 'Previous totalTime value', 'number', 'value.interval', 'h', 0);
+        await this.extendObjectAsync('internal.lastTotalTime', { common: { unit: 'h' } });
         await state('internal.lastCalculationGap', 'Last calculated calendar gap', 'string', 'text', null, '');
         await state('internal.plannedExtension', 'Planned extension without rain override', 'number', 'value', '%', 0);
         await state('internal.plannedReason', 'Planned control reason', 'string', 'text', null, 'initializing');
@@ -96,7 +97,7 @@ class WorxMowtime extends utils.Adapter {
         const zone = Math.trunc(await this.getForeignNumber(this.config.zoneStateId));
         if (!mowing || zone < 1 || zone > 4) return;
         const current = Number((await this.getStateAsync(`zones.${zone}.actualMinutes`))?.val) || 0;
-        await this.setStateAsync(`zones.${zone}.actualMinutes`, current + Math.min(total - previous, 60), true);
+        await this.setStateAsync(`zones.${zone}.actualMinutes`, current + totalTimeDeltaMinutes(total, previous), true);
     }
 
     async updateLocalWeather() {
