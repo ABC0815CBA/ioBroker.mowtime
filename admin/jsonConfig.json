@@ -1,61 +1,62 @@
 {
   "type": "tabs",
   "items": {
-    "general": { "type": "panel", "label": "Allgemein", "items": {
-      "worxPrefix": { "type": "text", "label": "Worx-Datenpunktpräfix", "newLine": true },
-      "intervalMinutes": { "type": "number", "label": "Berechnungsintervall", "unit": "min", "min": 1 },
-      "mowingSpeed": { "type": "number", "label": "Mähleistung", "unit": "m²/h", "min": 1 },
-      "growthMmPerWeek": { "type": "number", "label": "Simuliertes Wachstum", "unit": "mm/Woche", "min": 0 },
-      "growthStartMm": { "type": "number", "label": "Standard: Teilfläche mähbereit ab Wachstum", "unit": "mm", "min": 0 },
-      "minTime": { "type": "number", "label": "MinTime (Freigabe-Hysterese)", "unit": "min", "min": 0 },
-      "sequenceLength": { "type": "number", "label": "Länge der Zonensequenz", "min": 1, "max": 100 }
-    }},
-    "weather": { "type": "panel", "label": "Wetter-Datenpunkte", "items": {
-      "weatherProvider": { "type": "select", "label": "Online-Wetteranbieter", "options": [{"label":"Open-Meteo","value":"openmeteo"},{"label":"Bright Sky / DWD","value":"brightsky"}] },
-      "rainSource": { "type": "select", "label": "Regenquelle", "options": [{"label":"Online","value":"online"},{"label":"Eigener Datenpunkt","value":"state"}] },
-      "windSource": { "type": "select", "label": "Windquelle", "options": [{"label":"Online","value":"online"},{"label":"Eigener Datenpunkt","value":"state"}] },
-      "temperatureSource": { "type": "select", "label": "Temperaturquelle", "options": [{"label":"Online","value":"online"},{"label":"Eigener Datenpunkt","value":"state"}] },
-      "sunshineSource": { "type": "select", "label": "Sonnenschein/ET0", "options": [{"label":"Online","value":"online"},{"label":"Eigene Datenpunkte","value":"state"}] },
-      "latitude": { "type": "number", "label": "Breitengrad", "min": -90, "max": 90 },
-      "longitude": { "type": "number", "label": "Längengrad", "min": -180, "max": 180 },
-      "weatherFailureMinutes": { "type": "number", "label": "Letzten Wetterwert bei Fehlern verwenden", "unit": "min", "min": 0 },
-      "rainThreshold": { "type": "number", "label": "Regen bei mehr als", "unit": "mm/10 min", "min": 0 },
-      "rainState": { "type": "objectId", "label": "Regenmenge der letzten 10 Minuten (mm)" },
-      "rainTodayState": { "type": "objectId", "label": "Regenmenge des heutigen Tages (mm)" },
-      "windState": { "type": "objectId", "label": "Windgeschwindigkeit" },
-      "maxWind": { "type": "number", "label": "Wind-Sperrgrenze" },
-      "temperatureState": { "type": "objectId", "label": "Außentemperatur" },
-      "sunshineState": { "type": "objectId", "label": "Sonnenscheindauer heute (h)" },
-      "et0State": { "type": "objectId", "label": "Referenz-Evapotranspiration heute (mm)" },
-      "minTemperature": { "type": "number", "label": "Temperatur-Sperrgrenze", "unit": "°C" }
-    }},
-    "zones": { "type": "panel", "label": "Worx-Zonen", "items": {
-      "_zoneHelp": { "type": "staticText", "text": "Worx-Zonen dienen nur der Verteilung der Mähzeit. Fläche, Boden und Schatten werden in den Teilflächen gepflegt." },
-      "zone0Active": { "type": "checkbox", "label": "Worx-Zone 0 aktiv" },
-      "zone1Active": { "type": "checkbox", "label": "Worx-Zone 1 aktiv" },
-      "zone2Active": { "type": "checkbox", "label": "Worx-Zone 2 aktiv" },
-      "zone3Active": { "type": "checkbox", "label": "Worx-Zone 3 aktiv" }
-    }},
-    "patchesPanel": { "type": "panel", "label": "Teilflächen", "items": {
-      "_patchHelp": { "type": "staticText", "text": "Erreicht eine Teilfläche ihren mm-Schwellwert, wird die gesamte zugehörige Worx-Zone mähbereit. Ihre Sollzeit ergibt sich aus der Gesamtfläche aller aktiven Teilflächen dieser Zone geteilt durch die Mähleistung." },
-      "patches": {
-        "type": "table", "label": "Biologische Teilflächen", "clone": "name", "useCardFor": ["xs", "sm", "md"], "titleAttribute": "name",
-        "items": [
-          {"attr":"enabled","title":"Aktiv","type":"checkbox","default":true,"width":70},
-          {"attr":"name","title":"Name","type":"text","default":"Teilfläche","width":150},
-          {"attr":"mowerZone","title":"Worx-Zone","type":"select","default":0,"options":[{"label":"0","value":0},{"label":"1","value":1},{"label":"2","value":2},{"label":"3","value":3}],"width":100},
-          {"attr":"area","title":"Fläche m²","type":"number","default":100,"min":0,"width":100},
-          {"attr":"soil","title":"Boden","type":"select","default":"mixed","options":[{"label":"Sandig","value":"sandy"},{"label":"Sandig-Mischig","value":"sandyMixed"},{"label":"Mischerde","value":"mixed"},{"label":"Humus","value":"humus"},{"label":"Humus-Lehm","value":"humusLoam"},{"label":"Lehmig","value":"loamy"}],"width":150},
-          {"attr":"fertilityFactor","title":"Fruchtbarkeit","type":"number","default":1,"min":0.3,"max":1.5,"step":0.05,"width":110},
-          {"attr":"shade","title":"Schatten","type":"select","default":0,"options":[{"label":"Sonne","value":0},{"label":"Halbschatten","value":1},{"label":"Schatten","value":2}],"width":130},
-          {"attr":"rootDepthCm","title":"Wurzeltiefe cm","type":"number","default":15,"min":5,"max":40,"width":120},
-          {"attr":"rainFactor","title":"Regenfaktor","type":"number","default":1,"min":0,"max":2,"step":0.05,"width":110},
-          {"attr":"rainMode","title":"Regen","type":"select","default":"global","options":[{"label":"Global","value":"global"},{"label":"Eigener mm-Datenpunkt","value":"own"}],"width":140},
-          {"attr":"rainState","title":"Regen-Datenpunkt mm","type":"text","default":"","width":210},
-          {"attr":"moistureState","title":"Bodenfeuchte-Datenpunkt %","type":"text","default":"","width":220},
-          {"attr":"growthStartMm","title":"Mähbereit ab mm","type":"number","default":3,"min":0,"width":130}
-        ]
+    "sources": {
+      "type": "panel",
+      "label": {"de": "Datenpunkte", "en": "Data points"},
+      "items": {
+        "info": {"type": "staticText", "text": {"de": "Alle Quellen sind bestehende ioBroker-Datenpunkte. Regen muss ein kumulativer mm-Zähler sein; totalTime ein kumulativer Minutenzähler.", "en": "All sources are existing ioBroker states. Rain must be a cumulative mm counter; totalTime a cumulative minute counter."}, "newLine": true},
+        "rainStateId": {"type": "objectId", "label": {"de": "Regenmenge kumulativ (mm)", "en": "Cumulative rainfall (mm)"}},
+        "temperatureStateId": {"type": "objectId", "label": {"de": "Temperatur (°C)", "en": "Temperature (°C)"}},
+        "moistureStateId": {"type": "objectId", "label": {"de": "Bodenfeuchte (%)", "en": "Soil moisture (%)"}},
+        "lightStateId": {"type": "objectId", "label": {"de": "Licht (Lux)", "en": "Light (lux)"}},
+        "totalTimeStateId": {"type": "objectId", "label": "Worx totalTime"},
+        "statusStateId": {"type": "objectId", "label": "Worx Status"},
+        "zoneStateId": {"type": "objectId", "label": {"de": "Aktive Zone (1–4)", "en": "Active zone (1–4)"}},
+        "mowTimeExtendedStateId": {"type": "objectId", "label": "Worx MowTimeExtended"},
+        "calendarStateId": {"type": "objectId", "label": "calendar.calJson"},
+        "calendar2StateId": {"type": "objectId", "label": "calendar.calJson2"},
+        "mowingStatusValues": {"type": "text", "label": {"de": "Mäh-Statuswerte (Komma)", "en": "Mowing status values (comma separated)"}}
       }
-    }}
+    },
+    "rain": {
+      "type": "panel",
+      "label": {"de": "Regensperre", "en": "Rain lock"},
+      "items": {
+        "rainThresholdMm": {"type": "number", "label": {"de": "Regen-Schwelle je Intervall (mm)", "en": "Rain threshold per interval (mm)"}, "min": 0, "step": 0.01},
+        "rainDryHours": {"type": "number", "label": {"de": "Trockenzeit bis Freigabe (h)", "en": "Dry time before release (h)"}, "min": 0, "step": 0.5},
+        "pollMinutes": {"type": "number", "label": {"de": "Auswertungsintervall (min)", "en": "Evaluation interval (min)"}, "min": 1, "max": 60}
+      }
+    },
+    "zones": {
+      "type": "panel",
+      "label": {"de": "Zonen", "en": "Zones"},
+      "items": {
+        "zone1Minutes": {"type": "number", "label": {"de": "Zone 1 Basis-Sollzeit (min/Woche)", "en": "Zone 1 base target (min/week)"}, "min": 0},
+        "zone1Soil": {"type": "number", "label": {"de": "Zone 1 Bodengüte (0–2)", "en": "Zone 1 soil quality (0–2)"}, "min": 0, "max": 2, "step": 0.05},
+        "zone2Minutes": {"type": "number", "label": {"de": "Zone 2 Basis-Sollzeit (min/Woche)", "en": "Zone 2 base target (min/week)"}, "min": 0},
+        "zone2Soil": {"type": "number", "label": {"de": "Zone 2 Bodengüte (0–2)", "en": "Zone 2 soil quality (0–2)"}, "min": 0, "max": 2, "step": 0.05},
+        "zone3Minutes": {"type": "number", "label": {"de": "Zone 3 Basis-Sollzeit (min/Woche)", "en": "Zone 3 base target (min/week)"}, "min": 0},
+        "zone3Soil": {"type": "number", "label": {"de": "Zone 3 Bodengüte (0–2)", "en": "Zone 3 soil quality (0–2)"}, "min": 0, "max": 2, "step": 0.05},
+        "zone4Minutes": {"type": "number", "label": {"de": "Zone 4 Basis-Sollzeit (min/Woche)", "en": "Zone 4 base target (min/week)"}, "min": 0},
+        "zone4Soil": {"type": "number", "label": {"de": "Zone 4 Bodengüte (0–2)", "en": "Zone 4 soil quality (0–2)"}, "min": 0, "max": 2, "step": 0.05}
+      }
+    },
+    "model": {
+      "type": "panel",
+      "label": {"de": "Wachstumsmodell", "en": "Growth model"},
+      "items": {
+        "tempMin": {"type": "number", "label": {"de": "Kein Wachstum unter °C", "en": "No growth below °C"}},
+        "tempOptLow": {"type": "number", "label": {"de": "Temperatur Optimum ab °C", "en": "Temperature optimum from °C"}},
+        "tempOptHigh": {"type": "number", "label": {"de": "Temperatur Optimum bis °C", "en": "Temperature optimum to °C"}},
+        "tempMax": {"type": "number", "label": {"de": "Kein Wachstum über °C", "en": "No growth above °C"}},
+        "moistureDry": {"type": "number", "label": {"de": "Trockenpunkt (%)", "en": "Dry point (%)"}},
+        "moistureOptLow": {"type": "number", "label": {"de": "Feuchte Optimum ab (%)", "en": "Moisture optimum from (%)"}},
+        "moistureOptHigh": {"type": "number", "label": {"de": "Feuchte Optimum bis (%)", "en": "Moisture optimum to (%)"}},
+        "moistureFlood": {"type": "number", "label": {"de": "Überschwemmungspunkt (%)", "en": "Flood point (%)"}},
+        "lightLow": {"type": "number", "label": {"de": "Kein Wachstum unter (Lux)", "en": "No growth below (lux)"}},
+        "lightOptimal": {"type": "number", "label": {"de": "Volles Licht ab (Lux)", "en": "Full light from (lux)"}}
+      }
+    }
   }
 }
