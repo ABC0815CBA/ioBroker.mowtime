@@ -4,7 +4,7 @@ const utils = require('@iobroker/adapter-core');
 const { growthFactors, extensionForTarget, totalTimeDeltaMinutes, clamp } = require('./lib/model');
 const { remainingCalendarMinutes, calendarPosition, weekKey } = require('./lib/calendar');
 const { buildOpenMeteoUrl, parseOpenMeteo } = require('./lib/openmeteo');
-const { rainLockEnabled, growthWeatherAdjustmentEnabled, sourceFor, neutralWeather } = require('./lib/sources');
+const { rainLockEnabled, growthWeatherAdjustmentEnabled, sourceFor, neutralWeather, weatherControlValue } = require('./lib/sources');
 
 class WorxMowtime extends utils.Adapter {
     constructor(options = {}) {
@@ -257,6 +257,7 @@ class WorxMowtime extends utils.Adapter {
         const calendars = [calendar1, calendar2];
         const position = calendarPosition(calendars);
         const lastGap = String((await this.getStateAsync('internal.lastCalculationGap'))?.val || '');
+        const growthEnabled = growthWeatherAdjustmentEnabled(this.config);
 
         // The normal target is recalculated exactly once in every gap between
         // mowing windows. Rain remains an immediate safety override.
@@ -265,11 +266,13 @@ class WorxMowtime extends utils.Adapter {
         }
 
         if (rainLocked) {
-            await this.writeOutputIfChanged(-100, 'rain lock');
+            await this.writeOutputIfChanged(weatherControlValue(true, growthEnabled, 0), 'rain lock');
+        } else if (!growthEnabled) {
+            await this.writeOutputIfChanged(weatherControlValue(false, false, 0), 'weather adjustment disabled');
         } else if (!position.active) {
             const planned = Number((await this.getStateAsync('internal.plannedExtension'))?.val) || 0;
             const reason = String((await this.getStateAsync('internal.plannedReason'))?.val || 'calendar gap calculation');
-            await this.writeOutputIfChanged(planned, reason);
+            await this.writeOutputIfChanged(weatherControlValue(false, true, planned), reason);
         }
     }
 
