@@ -1,7 +1,7 @@
 {
   "common": {
     "name": "mowtime",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "titleLang": {"en": "Worx mowing time", "de": "Worx Mähzeit"},
     "desc": {"en": "Controls Worx mowing time using rain, growth and weekly targets", "de": "Steuert die Worx-Mähzeit anhand von Regen, Wachstum und Wochenzielen"},
     "authors": ["Hinrich"],
@@ -18,11 +18,18 @@
     "keywords": ["worx", "landroid", "mower", "weather"],
     "type": "garden",
     "tier": 2,
-    "news": {"1.0.0": {"en": "New rain, growth, zone and calendar based controller", "de": "Neue regen-, wachstums-, zonen- und kalenderbasierte Steuerung"}},
+    "news": {
+      "1.1.0": {"en": "Added Open-Meteo as an alternative weather source", "de": "Open-Meteo als alternative Wetterquelle ergänzt"},
+      "1.0.0": {"en": "New rain, growth, zone and calendar based controller", "de": "Neue regen-, wachstums-, zonen- und kalenderbasierte Steuerung"}
+    },
     "dependencies": [{"js-controller": ">=5.0.19"}],
     "globalDependencies": [{"admin": ">=6.0.0"}]
   },
   "native": {
+    "weatherSource": "states",
+    "latitude": 52.52,
+    "longitude": 13.41,
+    "onlineUpdateMinutes": 60,
     "rainStateId": "",
     "temperatureStateId": "",
     "moistureStateId": "",
