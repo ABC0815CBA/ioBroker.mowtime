@@ -1,7 +1,7 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { trapezoid, growthFactors, extensionForTarget, totalTimeDeltaMinutes } = require('../lib/model');
+const { trapezoid, growthFactors, extensionForTarget, totalTimeDeltaMinutes, worxZoneToDisplayZone } = require('../lib/model');
 
 const cfg = { tempMin: 5, tempOptLow: 15, tempOptHigh: 25, tempMax: 35, moistureDry: 10, moistureOptLow: 35, moistureOptHigh: 65, moistureFlood: 95, lightLow: 1000, lightOptimal: 15000 };
 
@@ -28,4 +28,12 @@ test('converts Worx totalTime hours to zone minutes', () => {
     assert.equal(totalTimeDeltaMinutes(124, 123), 60);
     assert.equal(totalTimeDeltaMinutes(5, 100), 0);
     assert.equal(totalTimeDeltaMinutes(102, 100), 60);
+});
+
+test('maps technical Worx zones 0-3 to displayed zones 1-4', () => {
+    assert.equal(worxZoneToDisplayZone(0), 1);
+    assert.equal(worxZoneToDisplayZone(1), 2);
+    assert.equal(worxZoneToDisplayZone(2), 3);
+    assert.equal(worxZoneToDisplayZone(3), 4);
+    assert.equal(worxZoneToDisplayZone(4), 0);
 });

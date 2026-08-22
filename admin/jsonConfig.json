@@ -21,7 +21,7 @@
         "lightStateId": {"type": "objectId", "label": {"de": "Licht (Lux)", "en": "Light (lux)"}, "hidden": "!data.enableGrowthWeatherAdjustment || data.lightSource === 'openmeteo'"},
         "totalTimeStateId": {"type": "objectId", "label": {"de": "Worx totalTime (Stunden)", "en": "Worx totalTime (hours)"}},
         "statusStateId": {"type": "objectId", "label": "Worx Status"},
-        "zoneStateId": {"type": "objectId", "label": {"de": "Aktive Zone (1–4)", "en": "Active zone (1–4)"}},
+        "zoneStateId": {"type": "objectId", "label": {"de": "Technische Worx-Zone (0–3)", "en": "Technical Worx zone (0–3)"}},
         "mowTimeExtendedStateId": {"type": "objectId", "label": "Worx MowTimeExtended"},
         "calendarStateId": {"type": "objectId", "label": "calendar.calJson"},
         "calendar2StateId": {"type": "objectId", "label": "calendar.calJson2"},
