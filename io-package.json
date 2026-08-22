@@ -1,7 +1,7 @@
 {
   "common": {
     "name": "mowtime",
-    "version": "1.3.0",
+    "version": "1.3.1",
     "titleLang": {"en": "Worx mowing time", "de": "Worx Mähzeit"},
     "desc": {"en": "Controls Worx mowing time using rain, growth and weekly targets", "de": "Steuert die Worx-Mähzeit anhand von Regen, Wachstum und Wochenzielen"},
     "authors": ["Hinrich"],
@@ -19,6 +19,7 @@
     "type": "garden",
     "tier": 2,
     "news": {
+      "1.3.1": {"en": "Fixed mapping of technical Worx zones 0-3 to displayed zones 1-4", "de": "Zuordnung der technischen Worx-Zonen 0-3 zu den angezeigten Zonen 1-4 korrigiert"},
       "1.3.0": {"en": "Replaced the direct soil multiplier with a 30-day soil water balance", "de": "Direkten Bodenmultiplikator durch eine 30-Tage-Bodenwasserbilanz ersetzt"},
       "1.2.0": {"en": "Added separate rain and growth switches plus individual sources for every weather value", "de": "Getrennte Schalter für Regensperre und Wetterwachstum sowie einzelne Quellenwahl je Wetterwert ergänzt"},
       "1.1.0": {"en": "Added Open-Meteo as an alternative weather source", "de": "Open-Meteo als alternative Wetterquelle ergänzt"},

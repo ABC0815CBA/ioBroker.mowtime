@@ -1,7 +1,7 @@
 'use strict';
 
 const utils = require('@iobroker/adapter-core');
-const { growthFactors, extensionForTarget, totalTimeDeltaMinutes, clamp } = require('./lib/model');
+const { growthFactors, extensionForTarget, totalTimeDeltaMinutes, worxZoneToDisplayZone, clamp } = require('./lib/model');
 const { remainingCalendarMinutes, calendarPosition, weekKey } = require('./lib/calendar');
 const { buildOpenMeteoUrl, parseOpenMeteo } = require('./lib/openmeteo');
 const { rainLockEnabled, growthWeatherAdjustmentEnabled, sourceFor, neutralWeather, weatherControlValue } = require('./lib/sources');
@@ -106,8 +106,8 @@ class WorxMowtime extends utils.Adapter {
         if (!Number.isFinite(previous) || total <= previous) return;
         const status = String(await this.getForeignValue(this.config.statusStateId)).toLowerCase();
         const mowing = String(this.config.mowingStatusValues || '').split(',').map(x => x.trim().toLowerCase()).includes(status);
-        const zone = Math.trunc(await this.getForeignNumber(this.config.zoneStateId));
-        if (!mowing || zone < 1 || zone > 4) return;
+        const zone = worxZoneToDisplayZone(await this.getForeignNumber(this.config.zoneStateId));
+        if (!mowing || zone === 0) return;
         const current = Number((await this.getStateAsync(`zones.${zone}.actualMinutes`))?.val) || 0;
         await this.setStateAsync(`zones.${zone}.actualMinutes`, current + totalTimeDeltaMinutes(total, previous), true);
     }

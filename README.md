@@ -10,7 +10,7 @@ Der berechnete Ausgang steht unter `mowtime.0.Worx.MOwTimeExtended` sowie unter 
 - Getrennte Schalter: Regensperre und Wetter-Wachstumsanpassung können unabhängig aktiviert werden. Aktiver Regen hat bei eingeschalteter Regensperre immer Vorrang und setzt `-100 %`. Liegt keine aktive Regensperre vor, ist der Ausgang bei ausgeschalteter Wetteranpassung immer `0 %`; nur bei eingeschalteter Wetteranpassung wird der berechnete Prognosewert ausgegeben.
 - Wetterquellen: Regen, Temperatur, Bodenfeuchte und Licht können jeweils unabhängig aus einem eigenen ioBroker-Datenpunkt oder von Open-Meteo ohne API-Schlüssel bezogen werden. Sobald mindestens ein Wert Open-Meteo nutzt, werden Breitengrad und Längengrad benötigt; die Abfrage erfolgt standardmäßig höchstens einmal pro Stunde.
 - 30-Tage-Modell: Temperatur und Licht sowie eine chronologische Bodenwasserbilanz werden ausgewertet. Die Bodenarten Sand, sandiger Lehm, Lehm/Mischboden und toniger Boden besitzen unterschiedliche Speicherkapazität, Versickerung und Infiltration. Regenzeitpunkte und Trockenpausen wirken dadurch anders als eine reine Regensumme.
-- Wochensteuerung: Basis-Sollzeit je Zone × Wachstums-Multiplikator ergibt das Wochen-Soll. `totalTime` ist beim Worx-Adapter ein kumulativer Stundenzähler; seine positive Differenz wird mit 60 in Minuten umgerechnet und während eines konfigurierten Mähstatus der aktiven Zone zugerechnet. Montag beginnt eine neue Bilanz.
+- Wochensteuerung: Basis-Sollzeit je Zone × Wachstums-Multiplikator ergibt das Wochen-Soll. `totalTime` ist beim Worx-Adapter ein kumulativer Stundenzähler; seine positive Differenz wird mit 60 in Minuten umgerechnet und während eines konfigurierten Mähstatus der aktiven Zone zugerechnet. Technische Worx-Zonen werden dabei von `0–3` auf die angezeigten Zonen `1–4` abgebildet. Montag beginnt eine neue Bilanz.
 - Kalenderprognose: Beide Worx-Wochenpläne (`calJson`, `calJson2`) liefern die ab jetzt noch geplanten Minuten. Daraus wird ein Wert von `-100 %` bis `+100 %` berechnet, der das verbleibende Defizit möglichst genau ausgleicht.
 - Schreibbegrenzung: Die reguläre Berechnung läuft nur einmal je Lücke zwischen zwei Mähfenstern. Der externe Worx-Datenpunkt wird ausschließlich geschrieben, wenn sich der Prozentwert tatsächlich geändert hat. Die Regenprüfung bleibt im eingestellten Intervall aktiv und darf als Sicherheitsfunktion sofort `-100 %` setzen.
 
@@ -22,7 +22,7 @@ Nach Veröffentlichung über die ioBroker-Adminoberfläche aus der GitHub-URL in
 iobroker url https://github.com/ABC0815CBA/ioBroker.mowtime
 ```
 
-Danach Instanz anlegen und auf der Konfigurationsseite die Datenpunkte auswählen. `rainStateId` muss kumulative Millimeter, `totalTimeStateId` kumulative Stunden und `zoneStateId` eine Zonennummer 1–4 liefern.
+Danach Instanz anlegen und auf der Konfigurationsseite die Datenpunkte auswählen. `rainStateId` muss kumulative Millimeter, `totalTimeStateId` kumulative Stunden und `zoneStateId` die technische Worx-Zonennummer 0–3 liefern.
 
 Auf der Admin-Seite kann die Quelle für jeden Wetterwert einzeln gewählt werden. Bei Open-Meteo lädt der Adapter aktuellen Niederschlag sowie 30 Tage stündliche Temperatur, oberflächennahe Bodenfeuchte und Solarstrahlung. Bodenfeuchte wird von m³/m³ nach Prozent umgerechnet; Solarstrahlung wird mit `126,7 lx je W/m²` näherungsweise in Lux überführt. Der letzte erfolgreiche Abruf wird zwischengespeichert. Ohne jemals erfolgreich geladene benötigte Wetterdaten wird aus Sicherheitsgründen `-100 %` ausgegeben.
 
