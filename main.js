@@ -220,7 +220,19 @@ class Mowtime extends utils.Adapter {
         }
 
         await this.setStateAsync('control.MowtimeExtended', output, true);
-        await this.setForeignStateAsync(this.worxStates.mowTimeExtend, output, false);
+        await this.writeMowTimeExtendIfChanged(output);
+    }
+
+    async writeMowTimeExtendIfChanged(value) {
+        const target = Number(value);
+        if (!Number.isFinite(target)) return;
+
+        const state = await this.getForeignStateAsync(this.worxStates.mowTimeExtend);
+        const current = Number(state?.val);
+        if (Number.isFinite(current) && current === target) return;
+
+        this.log.info(`mowTimeExtend geändert: ${Number.isFinite(current) ? current : 'unbekannt'}% -> ${target}%`);
+        await this.setForeignStateAsync(this.worxStates.mowTimeExtend, target, false);
     }
 
     futureSlotMinutes(slots, now, mandatoryOnly) {
