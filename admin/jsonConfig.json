@@ -14,70 +14,44 @@
     },
     "worxInfo": {
       "type": "staticText",
-      "text": "Aus dem gewählten Basis-Datenpunkt verwendet der Adapter automatisch folgende Worx-Datenpunkte:"
-    },
-    "worxCalJson": {
-      "type": "pattern",
-      "label": "Kalender 1",
-      "pattern": "${data.worxBaseId}.calendar.calJson",
-      "copyToClipboard": true,
-      "sm": 12,
-      "md": 6
-    },
-    "worxCalJson2": {
-      "type": "pattern",
-      "label": "Kalender 2",
-      "pattern": "${data.worxBaseId}.calendar.calJson2",
-      "copyToClipboard": true,
-      "sm": 12,
-      "md": 6
-    },
-    "worxBladeTime": {
-      "type": "pattern",
-      "label": "Gesamt-Messerlaufzeit",
-      "pattern": "${data.worxBaseId}.mower.totalBladeTime",
-      "copyToClipboard": true,
-      "sm": 12,
-      "md": 6
-    },
-    "worxArea": {
-      "type": "pattern",
-      "label": "Aktuelle Zone",
-      "pattern": "${data.worxBaseId}.areas.actualArea",
-      "copyToClipboard": true,
-      "sm": 12,
-      "md": 6
-    },
-    "worxStatus": {
-      "type": "pattern",
-      "label": "Mäherstatus",
-      "pattern": "${data.worxBaseId}.mower.status",
-      "copyToClipboard": true,
-      "sm": 12,
-      "md": 6
-    },
-    "worxMowTimeExtend": {
-      "type": "pattern",
-      "label": "Mähzeit-Erweiterung",
-      "pattern": "${data.worxBaseId}.mower.mowTimeExtend",
-      "copyToClipboard": true,
-      "sm": 12,
-      "md": 6
+      "text": "Aus dem gewählten Basis-Datenpunkt verwendet der Adapter automatisch die Worx-Unterdatenpunkte für Kalender, Blade-Time, Zone, Status und mowTimeExtend."
     },
 
     "slotsHeader": { "type": "header", "text": "Mähplan – Pflichtzeiten", "size": 2 },
     "slotsInfo": {
       "type": "staticText",
-      "text": "Worx liefert beide Kalender in der Reihenfolge Sonntag bis Samstag. Bei den Beispieldaten sind die aktiven Fenster Mo–Fr 09:30–10:30 und Mo–Fr 20:00–21:00."
+      "text": "Die angezeigten Zeiten werden live aus calJson und calJson2 übernommen. Änderungen durch den Worx-Adapter erscheinen hier automatisch. Gespeichert wird nur, ob der jeweilige Slot Pflicht oder Optional ist."
     },
-    "mandatorySlots": {
-      "type": "table",
-      "label": "14 Slots: Index 0–6 = calJson So–Sa, Index 7–13 = calJson2 So–Sa",
-      "items": [
-        { "type": "checkbox", "attr": "mandatory", "title": "Pflicht" },
-        { "type": "text", "attr": "label", "title": "Mähzeit", "disabled": true }
-      ]
-    },
+
+    "slotMandatory00": { "type": "checkbox", "label": "Kalender 1 Sonntag – Pflicht", "sm": 12, "md": 4 },
+    "slotView00": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot00", "sm": 12, "md": 8 },
+    "slotMandatory01": { "type": "checkbox", "label": "Kalender 1 Montag – Pflicht", "sm": 12, "md": 4 },
+    "slotView01": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot01", "sm": 12, "md": 8 },
+    "slotMandatory02": { "type": "checkbox", "label": "Kalender 1 Dienstag – Pflicht", "sm": 12, "md": 4 },
+    "slotView02": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot02", "sm": 12, "md": 8 },
+    "slotMandatory03": { "type": "checkbox", "label": "Kalender 1 Mittwoch – Pflicht", "sm": 12, "md": 4 },
+    "slotView03": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot03", "sm": 12, "md": 8 },
+    "slotMandatory04": { "type": "checkbox", "label": "Kalender 1 Donnerstag – Pflicht", "sm": 12, "md": 4 },
+    "slotView04": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot04", "sm": 12, "md": 8 },
+    "slotMandatory05": { "type": "checkbox", "label": "Kalender 1 Freitag – Pflicht", "sm": 12, "md": 4 },
+    "slotView05": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot05", "sm": 12, "md": 8 },
+    "slotMandatory06": { "type": "checkbox", "label": "Kalender 1 Samstag – Pflicht", "sm": 12, "md": 4 },
+    "slotView06": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot06", "sm": 12, "md": 8 },
+
+    "slotMandatory07": { "type": "checkbox", "label": "Kalender 2 Sonntag – Pflicht", "sm": 12, "md": 4 },
+    "slotView07": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot07", "sm": 12, "md": 8 },
+    "slotMandatory08": { "type": "checkbox", "label": "Kalender 2 Montag – Pflicht", "sm": 12, "md": 4 },
+    "slotView08": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot08", "sm": 12, "md": 8 },
+    "slotMandatory09": { "type": "checkbox", "label": "Kalender 2 Dienstag – Pflicht", "sm": 12, "md": 4 },
+    "slotView09": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot09", "sm": 12, "md": 8 },
+    "slotMandatory10": { "type": "checkbox", "label": "Kalender 2 Mittwoch – Pflicht", "sm": 12, "md": 4 },
+    "slotView10": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot10", "sm": 12, "md": 8 },
+    "slotMandatory11": { "type": "checkbox", "label": "Kalender 2 Donnerstag – Pflicht", "sm": 12, "md": 4 },
+    "slotView11": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot11", "sm": 12, "md": 8 },
+    "slotMandatory12": { "type": "checkbox", "label": "Kalender 2 Freitag – Pflicht", "sm": 12, "md": 4 },
+    "slotView12": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot12", "sm": 12, "md": 8 },
+    "slotMandatory13": { "type": "checkbox", "label": "Kalender 2 Samstag – Pflicht", "sm": 12, "md": 4 },
+    "slotView13": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot13", "sm": 12, "md": 8 },
 
     "rainHeader": { "type": "header", "text": "Regensperre", "size": 2 },
     "rainSource": { "type": "select", "label": "Regenquelle", "options": [
