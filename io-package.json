@@ -28,7 +28,22 @@
     "zone2Target": 240,
     "zone3Target": 240,
     "zone4Target": 240,
-    "mandatorySlots": [false,true,true,true,true,true,false,false,true,true,true,true,true,false]
+    "mandatorySlots": [
+      { "mandatory": false, "label": "calJson So – keine Mähzeit" },
+      { "mandatory": true,  "label": "calJson Mo 09:30–10:30" },
+      { "mandatory": true,  "label": "calJson Di 09:30–10:30" },
+      { "mandatory": true,  "label": "calJson Mi 09:30–10:30" },
+      { "mandatory": true,  "label": "calJson Do 09:30–10:30" },
+      { "mandatory": true,  "label": "calJson Fr 09:30–10:30" },
+      { "mandatory": false, "label": "calJson Sa – keine Mähzeit" },
+      { "mandatory": false, "label": "calJson2 So – keine Mähzeit" },
+      { "mandatory": true,  "label": "calJson2 Mo 20:00–21:00" },
+      { "mandatory": true,  "label": "calJson2 Di 20:00–21:00" },
+      { "mandatory": true,  "label": "calJson2 Mi 20:00–21:00" },
+      { "mandatory": true,  "label": "calJson2 Do 20:00–21:00" },
+      { "mandatory": true,  "label": "calJson2 Fr 20:00–21:00" },
+      { "mandatory": false, "label": "calJson2 Sa – keine Mähzeit" }
+    ]
   },
   "objects": [],
   "instanceObjects": []
