@@ -53,16 +53,17 @@ class Mowtime extends utils.Adapter {
     }
 
     async initializeMandatorySlots() {
+        const days = ['So','Mo','Di','Mi','Do','Fr','Sa'];
         if (Array.isArray(this.config.mandatorySlots) && this.config.mandatorySlots.length === 14) {
             if (typeof this.config.mandatorySlots[0] === 'object') return;
             this.config.mandatorySlots = this.config.mandatorySlots.map((mandatory, i) => ({
                 mandatory: !!mandatory,
-                label: `${i < 7 ? 'calJson' : 'calJson2'} ${['Mo','Di','Mi','Do','Fr','Sa','So'][i % 7]}`,
+                label: `${i < 7 ? 'calJson' : 'calJson2'} ${days[i % 7]}`,
             }));
         } else {
             this.config.mandatorySlots = Array.from({ length: 14 }, (_, i) => ({
                 mandatory: false,
-                label: `${i < 7 ? 'calJson' : 'calJson2'} ${['Mo','Di','Mi','Do','Fr','Sa','So'][i % 7]}`,
+                label: `${i < 7 ? 'calJson' : 'calJson2'} ${days[i % 7]}`,
             }));
         }
     }
@@ -132,7 +133,6 @@ class Mowtime extends utils.Adapter {
         if (this.lastBladeHours !== null && blade >= this.lastBladeHours) {
             const deltaMinutes = (blade - this.lastBladeHours) * 60;
             if (deltaMinutes > 0 && deltaMinutes < 180) {
-                // totalBladeTime is an absolute counter. Its increase is assigned to the currently reported zone.
                 await this.addZoneMinutes(area + 1, deltaMinutes);
             }
         }
@@ -180,11 +180,13 @@ class Mowtime extends utils.Adapter {
         const cals = [this.parseCalendar(a?.val), this.parseCalendar(b?.val)];
         const flags = Array.isArray(this.config.mandatorySlots) ? this.config.mandatorySlots : [];
         const slots = [];
-        for (let cal=0; cal<2; cal++) for (let day=0; day<7; day++) {
-            const raw = cals[cal][day] || ['00:00',0,0];
+        for (let cal=0; cal<2; cal++) for (let rawDay=0; rawDay<7; rawDay++) {
+            const raw = cals[cal][rawDay] || ['00:00',0,0];
             const duration = Math.max(0, Number(raw[1]) || 0);
             const [h,m] = String(raw[0] || '00:00').split(':').map(Number);
-            slots.push({ cal, day, startMinute:(h||0)*60+(m||0), duration, mandatory:!!(flags[cal*7+day]?.mandatory ?? flags[cal*7+day]) });
+            // Worx calendar order is Sunday..Saturday; internally Monday=0..Sunday=6.
+            const day = (rawDay + 6) % 7;
+            slots.push({ cal, day, startMinute:(h||0)*60+(m||0), duration, mandatory:!!(flags[cal*7+rawDay]?.mandatory ?? flags[cal*7+rawDay]) });
         }
         return slots;
     }
