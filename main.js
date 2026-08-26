@@ -34,7 +34,6 @@ class Mowtime extends utils.Adapter {
 
     async onReady() {
         await this.createObjects();
-        await this.initializeMandatorySlots();
         await this.restoreRuntime();
 
         if (!this.worxBaseId) {
@@ -47,25 +46,10 @@ class Mowtime extends utils.Adapter {
         if (this.config.rainSource === 'state' && this.config.rainState) watched.push(this.config.rainState);
         for (const id of watched.filter(Boolean)) await this.subscribeForeignStatesAsync(id);
 
+        await this.refreshCalendarSlots();
         await this.sampleInputs();
         await this.evaluate();
         this.timer = this.setInterval(() => this.tick().catch(e => this.log.error(e.stack || e.message)), 60_000);
-    }
-
-    async initializeMandatorySlots() {
-        const days = ['So','Mo','Di','Mi','Do','Fr','Sa'];
-        if (Array.isArray(this.config.mandatorySlots) && this.config.mandatorySlots.length === 14) {
-            if (typeof this.config.mandatorySlots[0] === 'object') return;
-            this.config.mandatorySlots = this.config.mandatorySlots.map((mandatory, i) => ({
-                mandatory: !!mandatory,
-                label: `${i < 7 ? 'calJson' : 'calJson2'} ${days[i % 7]}`,
-            }));
-        } else {
-            this.config.mandatorySlots = Array.from({ length: 14 }, (_, i) => ({
-                mandatory: false,
-                label: `${i < 7 ? 'calJson' : 'calJson2'} ${days[i % 7]}`,
-            }));
-        }
     }
 
     async createObjects() {
@@ -77,6 +61,13 @@ class Mowtime extends utils.Adapter {
                 await this.setObjectNotExistsAsync(`${base}.targetMowtime`, { type:'state', common:{ name:'Target mow time', type:'number', role:'value.interval', unit:'min', read:true, write:false }, native:{} });
                 await this.setObjectNotExistsAsync(`${base}.targetMowtimePercent`, { type:'state', common:{ name:'Target mow time percent', type:'number', role:'value', unit:'%', read:true, write:false }, native:{} });
             }
+        }
+        for (let i = 0; i < 14; i++) {
+            await this.setObjectNotExistsAsync(`schedule.slot${String(i).padStart(2, '0')}`, {
+                type:'state',
+                common:{ name:`Mähplan Slot ${i + 1}`, type:'string', role:'text', read:true, write:false },
+                native:{}
+            });
         }
         await this.setObjectNotExistsAsync('control.MowtimeExtended', { type:'state', common:{ name:'MowtimeExtended', type:'number', role:'level', unit:'%', min:-100, max:100, read:true, write:false }, native:{} });
         await this.setObjectNotExistsAsync('control.rainLockActive', { type:'state', common:{ name:'Rain lock active', type:'boolean', role:'indicator', read:true, write:false }, native:{} });
@@ -104,6 +95,7 @@ class Mowtime extends utils.Adapter {
         if (!state || !this.worxBaseId) return;
         try {
             const states = this.worxStates;
+            if (id === states.calJson || id === states.calJson2) await this.refreshCalendarSlots();
             if (id === states.bladeTime || id === states.area) await this.sampleInputs();
             if (this.config.rainSource === 'state' && id === this.config.rainState) await this.processRainValue(Number(state.val));
             await this.evaluate();
@@ -119,22 +111,82 @@ class Mowtime extends utils.Adapter {
         await this.evaluate();
     }
 
+    parseCalendar(value) {
+        try {
+            const data = typeof value === 'string' ? JSON.parse(value) : value;
+            return Array.isArray(data) && data.length === 7 ? data : Array(7).fill(['00:00', 0, 0]);
+        } catch {
+            return Array(7).fill(['00:00', 0, 0]);
+        }
+    }
+
+    formatEndTime(start, duration) {
+        const [h, m] = String(start || '00:00').split(':').map(Number);
+        const total = ((h || 0) * 60 + (m || 0) + duration) % 1440;
+        return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
+    }
+
+    async refreshCalendarSlots() {
+        if (!this.worxBaseId) return;
+        const [a, b] = await Promise.all([
+            this.getForeignStateAsync(this.worxStates.calJson),
+            this.getForeignStateAsync(this.worxStates.calJson2),
+        ]);
+        const calendars = [this.parseCalendar(a?.val), this.parseCalendar(b?.val)];
+        const days = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
+        for (let cal = 0; cal < 2; cal++) {
+            for (let rawDay = 0; rawDay < 7; rawDay++) {
+                const raw = calendars[cal][rawDay] || ['00:00', 0, 0];
+                const start = String(raw[0] || '00:00');
+                const duration = Math.max(0, Number(raw[1]) || 0);
+                const text = duration > 0
+                    ? `${days[rawDay]} ${start}–${this.formatEndTime(start, duration)} (${duration} min)`
+                    : `${days[rawDay]} – keine Mähzeit`;
+                const index = cal * 7 + rawDay;
+                await this.setStateAsync(`schedule.slot${String(index).padStart(2, '0')}`, text, true);
+            }
+        }
+    }
+
+    isMandatory(index) {
+        const direct = this.config[`slotMandatory${String(index).padStart(2, '0')}`];
+        if (typeof direct === 'boolean') return direct;
+        const legacy = Array.isArray(this.config.mandatorySlots) ? this.config.mandatorySlots[index] : false;
+        return !!(legacy?.mandatory ?? legacy);
+    }
+
+    async getSlots() {
+        const [a, b] = await Promise.all([
+            this.getForeignStateAsync(this.worxStates.calJson),
+            this.getForeignStateAsync(this.worxStates.calJson2),
+        ]);
+        const calendars = [this.parseCalendar(a?.val), this.parseCalendar(b?.val)];
+        const slots = [];
+        for (let cal = 0; cal < 2; cal++) {
+            for (let rawDay = 0; rawDay < 7; rawDay++) {
+                const raw = calendars[cal][rawDay] || ['00:00', 0, 0];
+                const duration = Math.max(0, Number(raw[1]) || 0);
+                const [h, m] = String(raw[0] || '00:00').split(':').map(Number);
+                const day = (rawDay + 6) % 7;
+                const index = cal * 7 + rawDay;
+                slots.push({ cal, day, startMinute:(h || 0) * 60 + (m || 0), duration, mandatory:this.isMandatory(index) });
+            }
+        }
+        return slots;
+    }
+
     async sampleInputs() {
         if (!this.worxBaseId) return;
-        const states = this.worxStates;
         const [bladeState, areaState] = await Promise.all([
-            this.getForeignStateAsync(states.bladeTime),
-            this.getForeignStateAsync(states.area),
+            this.getForeignStateAsync(this.worxStates.bladeTime),
+            this.getForeignStateAsync(this.worxStates.area),
         ]);
         const blade = Number(bladeState?.val);
         const area = Number(areaState?.val);
         if (!Number.isFinite(blade) || !Number.isInteger(area) || area < 0 || area > 3) return;
-
         if (this.lastBladeHours !== null && blade >= this.lastBladeHours) {
             const deltaMinutes = (blade - this.lastBladeHours) * 60;
-            if (deltaMinutes > 0 && deltaMinutes < 180) {
-                await this.addZoneMinutes(area + 1, deltaMinutes);
-            }
+            if (deltaMinutes > 0 && deltaMinutes < 180) await this.addZoneMinutes(area + 1, deltaMinutes);
         }
         this.lastBladeHours = blade;
         this.lastArea = area;
@@ -149,17 +201,17 @@ class Mowtime extends utils.Adapter {
     }
 
     getTargets() {
-        return [1,2,3,4].map(z => Math.max(0, Number(this.config[`zone${z}Target`]) || 0));
+        return [1, 2, 3, 4].map(z => Math.max(0, Number(this.config[`zone${z}Target`]) || 0));
     }
 
     async updateResults() {
         const targets = this.getTargets();
-        const targetTotal = targets.reduce((a,b) => a+b, 0);
+        const targetTotal = targets.reduce((a, b) => a + b, 0);
         const actual = [];
-        for (let z=1; z<=4; z++) actual.push(Number((await this.getStateAsync(`Results.actualWeek.zone${z}.realMowtime`))?.val || 0));
-        const actualTotal = actual.reduce((a,b) => a+b, 0);
-        for (let i=0; i<4; i++) {
-            const base = `Results.actualWeek.zone${i+1}`;
+        for (let z = 1; z <= 4; z++) actual.push(Number((await this.getStateAsync(`Results.actualWeek.zone${z}.realMowtime`))?.val || 0));
+        const actualTotal = actual.reduce((a, b) => a + b, 0);
+        for (let i = 0; i < 4; i++) {
+            const base = `Results.actualWeek.zone${i + 1}`;
             await this.setStateAsync(`${base}.targetMowtime`, targets[i], true);
             await this.setStateAsync(`${base}.targetMowtimePercent`, targetTotal ? Math.round(targets[i] / targetTotal * 1000) / 10 : 0, true);
             await this.setStateAsync(`${base}.realMowtimePercent`, actualTotal ? Math.round(actual[i] / actualTotal * 1000) / 10 : 0, true);
@@ -167,37 +219,11 @@ class Mowtime extends utils.Adapter {
         return { targets, actual };
     }
 
-    parseCalendar(value) {
-        try {
-            const data = typeof value === 'string' ? JSON.parse(value) : value;
-            return Array.isArray(data) && data.length === 7 ? data : Array(7).fill(['00:00',0,0]);
-        } catch { return Array(7).fill(['00:00',0,0]); }
-    }
-
-    async getSlots() {
-        const states = this.worxStates;
-        const [a,b] = await Promise.all([this.getForeignStateAsync(states.calJson), this.getForeignStateAsync(states.calJson2)]);
-        const cals = [this.parseCalendar(a?.val), this.parseCalendar(b?.val)];
-        const flags = Array.isArray(this.config.mandatorySlots) ? this.config.mandatorySlots : [];
-        const slots = [];
-        for (let cal=0; cal<2; cal++) for (let rawDay=0; rawDay<7; rawDay++) {
-            const raw = cals[cal][rawDay] || ['00:00',0,0];
-            const duration = Math.max(0, Number(raw[1]) || 0);
-            const [h,m] = String(raw[0] || '00:00').split(':').map(Number);
-            // Worx calendar order is Sunday..Saturday; internally Monday=0..Sunday=6.
-            const day = (rawDay + 6) % 7;
-            slots.push({ cal, day, startMinute:(h||0)*60+(m||0), duration, mandatory:!!(flags[cal*7+rawDay]?.mandatory ?? flags[cal*7+rawDay]) });
-        }
-        return slots;
-    }
-
     async evaluate() {
         if (!this.worxBaseId) return;
         const { targets, actual } = await this.updateResults();
-        const remaining = targets.map((t,i) => Math.max(0, t - actual[i]));
-        const totalRemaining = remaining.reduce((a,b) => a+b, 0);
+        const totalRemaining = targets.reduce((sum, target, i) => sum + Math.max(0, target - actual[i]), 0);
         let output = 0;
-
         const rainLocked = Date.now() < this.rainLockedUntil;
         await this.setStateAsync('control.rainLockActive', rainLocked, true);
         await this.setStateAsync('control.rainLockedUntil', this.rainLockedUntil || 0, true);
@@ -208,17 +234,15 @@ class Mowtime extends utils.Adapter {
             const slots = await this.getSlots();
             const now = new Date();
             const day = (now.getDay() + 6) % 7;
-            const minute = now.getHours()*60 + now.getMinutes();
-            const current = slots.filter(s => s.day === day && s.duration > 0 && minute >= s.startMinute && minute < s.startMinute+s.duration);
+            const minute = now.getHours() * 60 + now.getMinutes();
+            const current = slots.filter(s => s.day === day && s.duration > 0 && minute >= s.startMinute && minute < s.startMinute + s.duration);
             const currentMandatory = current.some(s => s.mandatory);
             const currentOptional = current.some(s => !s.mandatory);
             const futureMandatoryMinutes = this.futureSlotMinutes(slots, now, true);
             const optionalNeeded = totalRemaining > futureMandatoryMinutes;
             const status = Number((await this.getForeignStateAsync(this.worxStates.status))?.val);
             const home = status === 1;
-
             if (home && currentOptional && !currentMandatory && !optionalNeeded) output = -100;
-            else output = 0;
         }
 
         await this.setStateAsync('control.MowtimeExtended', output, true);
@@ -228,18 +252,16 @@ class Mowtime extends utils.Adapter {
     async writeMowTimeExtendIfChanged(value) {
         const target = Number(value);
         if (!Number.isFinite(target)) return;
-
         const state = await this.getForeignStateAsync(this.worxStates.mowTimeExtend);
         const current = Number(state?.val);
         if (Number.isFinite(current) && current === target) return;
-
         this.log.info(`mowTimeExtend geändert: ${Number.isFinite(current) ? current : 'unbekannt'}% -> ${target}%`);
         await this.setForeignStateAsync(this.worxStates.mowTimeExtend, target, false);
     }
 
     futureSlotMinutes(slots, now, mandatoryOnly) {
-        const today = (now.getDay()+6)%7;
-        const minute = now.getHours()*60+now.getMinutes();
+        const today = (now.getDay() + 6) % 7;
+        const minute = now.getHours() * 60 + now.getMinutes();
         let total = 0;
         for (const s of slots) {
             if (s.duration <= 0 || (mandatoryOnly && !s.mandatory)) continue;
@@ -263,15 +285,16 @@ class Mowtime extends utils.Adapter {
             this.lastRainChange = now;
             this.rainLockedUntil = now + Math.max(0, Number(this.config.rainLockHours) || 0) * 3600_000;
         }
-        if (this.lastRainChange && now - this.lastRainChange < (Number(this.config.rainLockHours)||0)*3600_000) {
-            this.rainLockedUntil = Math.max(this.rainLockedUntil, this.lastRainChange + (Number(this.config.rainLockHours)||0)*3600_000);
+        if (this.lastRainChange && now - this.lastRainChange < (Number(this.config.rainLockHours) || 0) * 3600_000) {
+            this.rainLockedUntil = Math.max(this.rainLockedUntil, this.lastRainChange + (Number(this.config.rainLockHours) || 0) * 3600_000);
         }
         await this.setStateAsync('runtime.rainReference', this.rainReference, true);
         await this.setStateAsync('runtime.lastRainChange', this.lastRainChange, true);
     }
 
     async updateOpenMeteoRain() {
-        const lat = Number(this.config.latitude), lon = Number(this.config.longitude);
+        const lat = Number(this.config.latitude);
+        const lon = Number(this.config.longitude);
         if (!Number.isFinite(lat) || !Number.isFinite(lon) || (!lat && !lon)) return;
         try {
             const url = `https://api.open-meteo.com/v1/forecast?latitude=${encodeURIComponent(lat)}&longitude=${encodeURIComponent(lon)}&current=precipitation&timezone=auto`;
@@ -282,19 +305,21 @@ class Mowtime extends utils.Adapter {
             if (Number.isFinite(precipitation) && precipitation >= 0.1) {
                 const now = Date.now();
                 this.lastRainChange = now;
-                this.rainLockedUntil = now + Math.max(0, Number(this.config.rainLockHours)||0)*3600_000;
+                this.rainLockedUntil = now + Math.max(0, Number(this.config.rainLockHours) || 0) * 3600_000;
                 await this.setStateAsync('runtime.lastRainChange', now, true);
             }
-        } catch (e) { this.log.warn(`Open-Meteo: ${e.message}`); }
+        } catch (e) {
+            this.log.warn(`Open-Meteo: ${e.message}`);
+        }
     }
 
     weekKey(date) {
         const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
         const day = d.getUTCDay() || 7;
         d.setUTCDate(d.getUTCDate() + 4 - day);
-        const yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
-        const week = Math.ceil((((d-yearStart)/86400000)+1)/7);
-        return `${d.getUTCFullYear()}-W${String(week).padStart(2,'0')}`;
+        const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+        const week = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+        return `${d.getUTCFullYear()}-W${String(week).padStart(2, '0')}`;
     }
 
     async rollWeekIfNeeded() {
@@ -302,8 +327,8 @@ class Mowtime extends utils.Adapter {
         const old = (await this.getStateAsync('runtime.weekKey'))?.val;
         if (!old) { await this.setStateAsync('runtime.weekKey', key, true); return; }
         if (old === key) return;
-        for (let z=1; z<=4; z++) {
-            for (const field of ['realMowtime','realMowtimePercent','targetMowtime','targetMowtimePercent']) {
+        for (let z = 1; z <= 4; z++) {
+            for (const field of ['realMowtime', 'realMowtimePercent', 'targetMowtime', 'targetMowtimePercent']) {
                 const src = Number((await this.getStateAsync(`Results.actualWeek.zone${z}.${field}`))?.val || 0);
                 await this.setStateAsync(`Results.pastWeek.zone${z}.${field}`, src, true);
             }
