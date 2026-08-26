@@ -66,12 +66,16 @@
     },
 
     "slotsHeader": { "type": "header", "text": "Mähplan – Pflichtzeiten", "size": 2 },
+    "slotsInfo": {
+      "type": "staticText",
+      "text": "Worx liefert beide Kalender in der Reihenfolge Sonntag bis Samstag. Bei den Beispieldaten sind die aktiven Fenster Mo–Fr 09:30–10:30 und Mo–Fr 20:00–21:00."
+    },
     "mandatorySlots": {
       "type": "table",
-      "label": "14 Slots: Index 0–6 = calJson Mo–So, Index 7–13 = calJson2 Mo–So",
+      "label": "14 Slots: Index 0–6 = calJson So–Sa, Index 7–13 = calJson2 So–Sa",
       "items": [
         { "type": "checkbox", "attr": "mandatory", "title": "Pflicht" },
-        { "type": "text", "attr": "label", "title": "Bezeichnung", "disabled": true }
+        { "type": "text", "attr": "label", "title": "Mähzeit", "disabled": true }
       ]
     },
 
