@@ -77,6 +77,8 @@ class Mowtime extends utils.Adapter {
         await this.setObjectNotExistsAsync('runtime.weekKey', { type:'state', common:{ name:'ISO week key', type:'string', role:'text', read:true, write:false }, native:{} });
         await this.setObjectNotExistsAsync('runtime.rainReference', { type:'state', common:{ name:'Rain reference', type:'number', role:'value', unit:'mm', read:true, write:false }, native:{} });
         await this.setObjectNotExistsAsync('runtime.lastRainChange', { type:'state', common:{ name:'Last rain change', type:'number', role:'value.time', read:true, write:false }, native:{} });
+        await this.setObjectNotExistsAsync('runtime.lastWeatherUpdate', { type:'state', common:{ name:'Letzter Wetterabruf', type:'string', role:'text', read:true, write:false }, native:{} });
+        await this.setObjectNotExistsAsync('runtime.weatherStatus', { type:'state', common:{ name:'Status Wetterabruf', type:'string', role:'text', read:true, write:false }, native:{} });
     }
 
     async restoreRuntime() {
@@ -293,22 +295,34 @@ class Mowtime extends utils.Adapter {
     }
 
     async updateOpenMeteoRain() {
+        if (this.config.rainSource !== 'openmeteo') return;
+
         const lat = Number(this.config.latitude);
         const lon = Number(this.config.longitude);
-        if (!Number.isFinite(lat) || !Number.isFinite(lon) || (!lat && !lon)) return;
+        if (!Number.isFinite(lat) || !Number.isFinite(lon) || (!lat && !lon)) {
+            await this.setStateAsync('runtime.weatherStatus', 'Fehler: ungültige Koordinaten', true);
+            return;
+        }
+
         try {
+            await this.setStateAsync('runtime.weatherStatus', 'Abruf läuft', true);
             const url = `https://api.open-meteo.com/v1/forecast?latitude=${encodeURIComponent(lat)}&longitude=${encodeURIComponent(lon)}&current=precipitation&timezone=auto`;
             const res = await fetch(url);
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const json = await res.json();
             const precipitation = Number(json?.current?.precipitation);
+            const now = new Date();
+            await this.setStateAsync('runtime.lastWeatherUpdate', now.toLocaleString('de-DE'), true);
+            await this.setStateAsync('runtime.weatherStatus', Number.isFinite(precipitation) ? `OK (${precipitation} mm)` : 'OK', true);
+
             if (Number.isFinite(precipitation) && precipitation >= 0.1) {
-                const now = Date.now();
-                this.lastRainChange = now;
-                this.rainLockedUntil = now + Math.max(0, Number(this.config.rainLockHours) || 0) * 3600_000;
-                await this.setStateAsync('runtime.lastRainChange', now, true);
+                const nowMs = now.getTime();
+                this.lastRainChange = nowMs;
+                this.rainLockedUntil = nowMs + Math.max(0, Number(this.config.rainLockHours) || 0) * 3600_000;
+                await this.setStateAsync('runtime.lastRainChange', nowMs, true);
             }
         } catch (e) {
+            await this.setStateAsync('runtime.weatherStatus', `Fehler: ${e.message}`, true);
             this.log.warn(`Open-Meteo: ${e.message}`);
         }
     }
