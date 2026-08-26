@@ -1,7 +1,7 @@
 {
   "common": {
     "name": "mowtime",
-    "version": "0.1.0",
+    "version": "0.5.0",
     "titleLang": { "en": "Mowtime", "de": "Mowtime" },
     "desc": { "en": "Worx mower zone mow-time optimizer", "de": "Optimiert die Mähzeit eines Worx-Mähroboters je Zone" },
     "authors": ["ABC0815CBA"],
@@ -28,22 +28,20 @@
     "zone2Target": 240,
     "zone3Target": 240,
     "zone4Target": 240,
-    "mandatorySlots": [
-      { "mandatory": false, "label": "calJson So – keine Mähzeit" },
-      { "mandatory": true,  "label": "calJson Mo 09:30–10:30" },
-      { "mandatory": true,  "label": "calJson Di 09:30–10:30" },
-      { "mandatory": true,  "label": "calJson Mi 09:30–10:30" },
-      { "mandatory": true,  "label": "calJson Do 09:30–10:30" },
-      { "mandatory": true,  "label": "calJson Fr 09:30–10:30" },
-      { "mandatory": false, "label": "calJson Sa – keine Mähzeit" },
-      { "mandatory": false, "label": "calJson2 So – keine Mähzeit" },
-      { "mandatory": true,  "label": "calJson2 Mo 20:00–21:00" },
-      { "mandatory": true,  "label": "calJson2 Di 20:00–21:00" },
-      { "mandatory": true,  "label": "calJson2 Mi 20:00–21:00" },
-      { "mandatory": true,  "label": "calJson2 Do 20:00–21:00" },
-      { "mandatory": true,  "label": "calJson2 Fr 20:00–21:00" },
-      { "mandatory": false, "label": "calJson2 Sa – keine Mähzeit" }
-    ]
+    "slotMandatory00": false,
+    "slotMandatory01": true,
+    "slotMandatory02": true,
+    "slotMandatory03": true,
+    "slotMandatory04": true,
+    "slotMandatory05": true,
+    "slotMandatory06": false,
+    "slotMandatory07": false,
+    "slotMandatory08": true,
+    "slotMandatory09": true,
+    "slotMandatory10": true,
+    "slotMandatory11": true,
+    "slotMandatory12": true,
+    "slotMandatory13": false
   },
   "objects": [],
   "instanceObjects": []
