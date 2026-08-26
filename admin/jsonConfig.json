@@ -1,0 +1,43 @@
+{
+  "i18n": true,
+  "type": "panel",
+  "items": {
+    "statesHeader": { "type": "header", "text": "Worx Datenpunkte", "size": 2 },
+    "calJsonState": { "type": "text", "label": "calJson Datenpunkt", "sm": 12, "md": 6 },
+    "calJson2State": { "type": "text", "label": "calJson2 Datenpunkt", "sm": 12, "md": 6 },
+    "bladeTimeState": { "type": "text", "label": "totalBladeTime Datenpunkt", "sm": 12, "md": 6 },
+    "areaState": { "type": "text", "label": "actualArea Datenpunkt", "sm": 12, "md": 6 },
+    "statusState": { "type": "text", "label": "mower.status Datenpunkt", "sm": 12, "md": 6 },
+    "mowtimeExtendedState": { "type": "text", "label": "Worx MowtimeExtended Zieldatenpunkt (optional)", "sm": 12, "md": 6 },
+
+    "slotsHeader": { "type": "header", "text": "Mähplan – Pflichtzeiten", "size": 2 },
+    "mandatorySlots": {
+      "type": "table",
+      "label": "14 Slots: Index 0–6 = calJson Mo–So, Index 7–13 = calJson2 Mo–So",
+      "items": [
+        { "type": "checkbox", "attr": "mandatory", "title": "Pflicht" },
+        { "type": "text", "attr": "label", "title": "Bezeichnung", "disabled": true }
+      ]
+    },
+
+    "rainHeader": { "type": "header", "text": "Regensperre", "size": 2 },
+    "rainSource": { "type": "select", "label": "Regenquelle", "options": [
+      { "label": "Open-Meteo", "value": "openmeteo" },
+      { "label": "ioBroker Regensensor (mm/Tag)", "value": "state" }
+    ]},
+    "latitude": { "type": "number", "label": "Breitengrad", "hidden": "data.rainSource !== 'openmeteo'", "sm": 6 },
+    "longitude": { "type": "number", "label": "Längengrad", "hidden": "data.rainSource !== 'openmeteo'", "sm": 6 },
+    "rainState": { "type": "text", "label": "Regensensor Datenpunkt (mm/Tag)", "hidden": "data.rainSource !== 'state'" },
+    "rainLockHours": { "type": "number", "label": "Regensperre (Stunden)", "min": 0, "step": 0.5 },
+
+    "zonesHeader": { "type": "header", "text": "Zonen", "size": 2 },
+    "zone1Target": { "type": "number", "label": "Zone 1 Soll-Mähzeit (min)", "min": 0, "sm": 6, "md": 3 },
+    "zone2Target": { "type": "number", "label": "Zone 2 Soll-Mähzeit (min)", "min": 0, "sm": 6, "md": 3 },
+    "zone3Target": { "type": "number", "label": "Zone 3 Soll-Mähzeit (min)", "min": 0, "sm": 6, "md": 3 },
+    "zone4Target": { "type": "number", "label": "Zone 4 Soll-Mähzeit (min)", "min": 0, "sm": 6, "md": 3 },
+    "zone1Ratio": { "type": "number", "label": "Verhältnis Zone 1 (%)", "min": 0, "sm": 6, "md": 3 },
+    "zone2Ratio": { "type": "number", "label": "Verhältnis Zone 2 (%)", "min": 0, "sm": 6, "md": 3 },
+    "zone3Ratio": { "type": "number", "label": "Verhältnis Zone 3 (%)", "min": 0, "sm": 6, "md": 3 },
+    "zone4Ratio": { "type": "number", "label": "Verhältnis Zone 4 (%)", "min": 0, "sm": 6, "md": 3 }
+  }
+}
