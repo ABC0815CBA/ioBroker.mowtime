@@ -16,18 +16,34 @@ class Mowtime extends utils.Adapter {
         this.on('unload', this.onUnload.bind(this));
     }
 
+    get worxBaseId() {
+        return String(this.config.worxBaseId || '').replace(/\.$/, '');
+    }
+
+    get worxStates() {
+        const base = this.worxBaseId;
+        return {
+            calJson: `${base}.calendar.calJson`,
+            calJson2: `${base}.calendar.calJson2`,
+            bladeTime: `${base}.mower.totalBladeTime`,
+            area: `${base}.areas.actualArea`,
+            status: `${base}.mower.status`,
+            mowTimeExtend: `${base}.mower.mowTimeExtend`,
+        };
+    }
+
     async onReady() {
         await this.createObjects();
         await this.initializeMandatorySlots();
         await this.restoreRuntime();
 
-        const watched = [
-            this.config.bladeTimeState,
-            this.config.areaState,
-            this.config.statusState,
-            this.config.calJsonState,
-            this.config.calJson2State,
-        ];
+        if (!this.worxBaseId) {
+            this.log.error('Keine Worx Basis-Datenpunkt-ID konfiguriert.');
+            return;
+        }
+
+        const states = this.worxStates;
+        const watched = [states.bladeTime, states.area, states.status, states.calJson, states.calJson2];
         if (this.config.rainSource === 'state' && this.config.rainState) watched.push(this.config.rainState);
         for (const id of watched.filter(Boolean)) await this.subscribeForeignStatesAsync(id);
 
@@ -61,7 +77,7 @@ class Mowtime extends utils.Adapter {
                 await this.setObjectNotExistsAsync(`${base}.targetMowtimePercent`, { type:'state', common:{ name:'Target mow time percent', type:'number', role:'value', unit:'%', read:true, write:false }, native:{} });
             }
         }
-        await this.setObjectNotExistsAsync('control.MowtimeExtended', { type:'state', common:{ name:'MowtimeExtended', type:'number', role:'level', unit:'%', min:-100, max:0, read:true, write:false }, native:{} });
+        await this.setObjectNotExistsAsync('control.MowtimeExtended', { type:'state', common:{ name:'MowtimeExtended', type:'number', role:'level', unit:'%', min:-100, max:100, read:true, write:false }, native:{} });
         await this.setObjectNotExistsAsync('control.rainLockActive', { type:'state', common:{ name:'Rain lock active', type:'boolean', role:'indicator', read:true, write:false }, native:{} });
         await this.setObjectNotExistsAsync('control.rainLockedUntil', { type:'state', common:{ name:'Rain locked until', type:'number', role:'value.time', read:true, write:false }, native:{} });
         await this.setObjectNotExistsAsync('runtime.lastBladeHours', { type:'state', common:{ name:'Last blade hours', type:'number', role:'value', read:true, write:false }, native:{} });
@@ -84,9 +100,10 @@ class Mowtime extends utils.Adapter {
     }
 
     async onStateChange(id, state) {
-        if (!state) return;
+        if (!state || !this.worxBaseId) return;
         try {
-            if (id === this.config.bladeTimeState || id === this.config.areaState) await this.sampleInputs();
+            const states = this.worxStates;
+            if (id === states.bladeTime || id === states.area) await this.sampleInputs();
             if (this.config.rainSource === 'state' && id === this.config.rainState) await this.processRainValue(Number(state.val));
             await this.evaluate();
         } catch (e) {
@@ -102,10 +119,11 @@ class Mowtime extends utils.Adapter {
     }
 
     async sampleInputs() {
-        if (!this.config.bladeTimeState || !this.config.areaState) return;
+        if (!this.worxBaseId) return;
+        const states = this.worxStates;
         const [bladeState, areaState] = await Promise.all([
-            this.getForeignStateAsync(this.config.bladeTimeState),
-            this.getForeignStateAsync(this.config.areaState),
+            this.getForeignStateAsync(states.bladeTime),
+            this.getForeignStateAsync(states.area),
         ]);
         const blade = Number(bladeState?.val);
         const area = Number(areaState?.val);
@@ -114,10 +132,8 @@ class Mowtime extends utils.Adapter {
         if (this.lastBladeHours !== null && blade >= this.lastBladeHours) {
             const deltaMinutes = (blade - this.lastBladeHours) * 60;
             if (deltaMinutes > 0 && deltaMinutes < 180) {
-                // Attribute elapsed blade time to the last known area. This avoids moving already elapsed time
-                // into a newly reported area when actualArea changes at the same moment.
-                const targetArea = Number.isInteger(this.lastArea) ? this.lastArea : area;
-                await this.addZoneMinutes(targetArea + 1, deltaMinutes);
+                // totalBladeTime is an absolute counter. Its increase is assigned to the currently reported zone.
+                await this.addZoneMinutes(area + 1, deltaMinutes);
             }
         }
         this.lastBladeHours = blade;
@@ -145,8 +161,8 @@ class Mowtime extends utils.Adapter {
         for (let i=0; i<4; i++) {
             const base = `Results.actualWeek.zone${i+1}`;
             await this.setStateAsync(`${base}.targetMowtime`, targets[i], true);
-            await this.setStateAsync(`${base}.targetMowtimePercent`, targetTotal ? targets[i] / targetTotal * 100 : 0, true);
-            await this.setStateAsync(`${base}.realMowtimePercent`, actualTotal ? actual[i] / actualTotal * 100 : 0, true);
+            await this.setStateAsync(`${base}.targetMowtimePercent`, targetTotal ? Math.round(targets[i] / targetTotal * 1000) / 10 : 0, true);
+            await this.setStateAsync(`${base}.realMowtimePercent`, actualTotal ? Math.round(actual[i] / actualTotal * 1000) / 10 : 0, true);
         }
         return { targets, actual };
     }
@@ -159,7 +175,8 @@ class Mowtime extends utils.Adapter {
     }
 
     async getSlots() {
-        const [a,b] = await Promise.all([this.getForeignStateAsync(this.config.calJsonState), this.getForeignStateAsync(this.config.calJson2State)]);
+        const states = this.worxStates;
+        const [a,b] = await Promise.all([this.getForeignStateAsync(states.calJson), this.getForeignStateAsync(states.calJson2)]);
         const cals = [this.parseCalendar(a?.val), this.parseCalendar(b?.val)];
         const flags = Array.isArray(this.config.mandatorySlots) ? this.config.mandatorySlots : [];
         const slots = [];
@@ -173,6 +190,7 @@ class Mowtime extends utils.Adapter {
     }
 
     async evaluate() {
+        if (!this.worxBaseId) return;
         const { targets, actual } = await this.updateResults();
         const remaining = targets.map((t,i) => Math.max(0, t - actual[i]));
         const totalRemaining = remaining.reduce((a,b) => a+b, 0);
@@ -193,20 +211,16 @@ class Mowtime extends utils.Adapter {
             const currentMandatory = current.some(s => s.mandatory);
             const currentOptional = current.some(s => !s.mandatory);
             const futureMandatoryMinutes = this.futureSlotMinutes(slots, now, true);
-
-            // If remaining work no longer fits into the remaining mandatory windows, optional windows are needed.
             const optionalNeeded = totalRemaining > futureMandatoryMinutes;
-            const status = Number((await this.getForeignStateAsync(this.config.statusState))?.val);
+            const status = Number((await this.getForeignStateAsync(this.worxStates.status))?.val);
             const home = status === 1;
 
-            // At home, suppress optional mowing while mandatory capacity is still sufficient.
-            // During a mandatory window or when optional capacity is required, allow the normal Worx schedule.
             if (home && currentOptional && !currentMandatory && !optionalNeeded) output = -100;
             else output = 0;
         }
 
         await this.setStateAsync('control.MowtimeExtended', output, true);
-        if (this.config.mowtimeExtendedState) await this.setForeignStateAsync(this.config.mowtimeExtendedState, output, false);
+        await this.setForeignStateAsync(this.worxStates.mowTimeExtend, output, false);
     }
 
     futureSlotMinutes(slots, now, mandatoryOnly) {
@@ -235,7 +249,6 @@ class Mowtime extends utils.Adapter {
             this.lastRainChange = now;
             this.rainLockedUntil = now + Math.max(0, Number(this.config.rainLockHours) || 0) * 3600_000;
         }
-        // Every new >=0.1 mm change restarts the dry-period lock timer.
         if (this.lastRainChange && now - this.lastRainChange < (Number(this.config.rainLockHours)||0)*3600_000) {
             this.rainLockedUntil = Math.max(this.rainLockedUntil, this.lastRainChange + (Number(this.config.rainLockHours)||0)*3600_000);
         }
@@ -277,18 +290,25 @@ class Mowtime extends utils.Adapter {
         if (old === key) return;
         for (let z=1; z<=4; z++) {
             for (const field of ['realMowtime','realMowtimePercent','targetMowtime','targetMowtimePercent']) {
-                const source = await this.getStateAsync(`Results.actualWeek.zone${z}.${field}`);
-                await this.setStateAsync(`Results.pastWeek.zone${z}.${field}`, source?.val ?? 0, true);
+                const src = Number((await this.getStateAsync(`Results.actualWeek.zone${z}.${field}`))?.val || 0);
+                await this.setStateAsync(`Results.pastWeek.zone${z}.${field}`, src, true);
             }
             await this.setStateAsync(`Results.actualWeek.zone${z}.realMowtime`, 0, true);
+            await this.setStateAsync(`Results.actualWeek.zone${z}.realMowtimePercent`, 0, true);
         }
         await this.setStateAsync('runtime.weekKey', key, true);
+        await this.updateResults();
     }
 
     onUnload(callback) {
-        try { if (this.timer) this.clearInterval(this.timer); callback(); } catch { callback(); }
+        try {
+            if (this.timer) this.clearInterval(this.timer);
+            callback();
+        } catch {
+            callback();
+        }
     }
 }
 
-if (require.main !== module) new Mowtime();
-else module.exports = options => new Mowtime(options);
+if (module.parent) module.exports = options => new Mowtime(options);
+else new Mowtime();
