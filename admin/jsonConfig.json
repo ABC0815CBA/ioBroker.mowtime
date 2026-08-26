@@ -4,15 +4,65 @@
   "items": {
     "statesHeader": { "type": "header", "text": "Worx", "size": 2 },
     "worxBaseId": {
-      "type": "text",
+      "type": "objectId",
       "label": "Worx Basis-Datenpunkt",
-      "help": "Beispiel: worx.0.2021A0000007006076E5. Die benötigten Unterdatenpunkte werden fest daraus abgeleitet.",
+      "help": "Wähle den Geräte-/Kanal-Datenpunkt des Mähroboters, z. B. worx.0.2021A0000007006076E5. Die benötigten Unterdatenpunkte werden automatisch daraus abgeleitet.",
+      "types": ["device", "channel"],
+      "root": "worx.0",
       "sm": 12,
       "md": 8
     },
     "worxInfo": {
       "type": "staticText",
-      "text": "Verwendet werden: calendar.calJson, calendar.calJson2, mower.totalBladeTime, areas.actualArea, mower.status und mower.mowTimeExtend."
+      "text": "Aus dem gewählten Basis-Datenpunkt verwendet der Adapter automatisch folgende Worx-Datenpunkte:"
+    },
+    "worxCalJson": {
+      "type": "pattern",
+      "label": "Kalender 1",
+      "pattern": "${data.worxBaseId}.calendar.calJson",
+      "copyToClipboard": true,
+      "sm": 12,
+      "md": 6
+    },
+    "worxCalJson2": {
+      "type": "pattern",
+      "label": "Kalender 2",
+      "pattern": "${data.worxBaseId}.calendar.calJson2",
+      "copyToClipboard": true,
+      "sm": 12,
+      "md": 6
+    },
+    "worxBladeTime": {
+      "type": "pattern",
+      "label": "Gesamt-Messerlaufzeit",
+      "pattern": "${data.worxBaseId}.mower.totalBladeTime",
+      "copyToClipboard": true,
+      "sm": 12,
+      "md": 6
+    },
+    "worxArea": {
+      "type": "pattern",
+      "label": "Aktuelle Zone",
+      "pattern": "${data.worxBaseId}.areas.actualArea",
+      "copyToClipboard": true,
+      "sm": 12,
+      "md": 6
+    },
+    "worxStatus": {
+      "type": "pattern",
+      "label": "Mäherstatus",
+      "pattern": "${data.worxBaseId}.mower.status",
+      "copyToClipboard": true,
+      "sm": 12,
+      "md": 6
+    },
+    "worxMowTimeExtend": {
+      "type": "pattern",
+      "label": "Mähzeit-Erweiterung",
+      "pattern": "${data.worxBaseId}.mower.mowTimeExtend",
+      "copyToClipboard": true,
+      "sm": 12,
+      "md": 6
     },
 
     "slotsHeader": { "type": "header", "text": "Mähplan – Pflichtzeiten", "size": 2 },
