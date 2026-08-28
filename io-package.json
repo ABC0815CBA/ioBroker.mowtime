@@ -1,7 +1,7 @@
 {
   "common": {
     "name": "mowtime",
-    "version": "0.6.0",
+    "version": "0.7.0",
     "titleLang": { "en": "Mowtime", "de": "Mowtime" },
     "desc": { "en": "Worx mower zone mow-time optimizer", "de": "Optimiert die Mähzeit eines Worx-Mähroboters je Zone" },
     "authors": ["ABC0815CBA"],
@@ -19,6 +19,7 @@
   },
   "native": {
     "worxBaseId": "worx.0.2021A0000007006076E5",
+    "weekStartDay": 1,
     "rainSource": "openmeteo",
     "latitude": 0,
     "longitude": 0,
