@@ -16,36 +16,24 @@ class Mowtime extends utils.Adapter {
         this.on('unload', this.onUnload.bind(this));
     }
 
-    get worxBaseId() {
-        return String(this.config.worxBaseId || '').replace(/\.$/, '');
-    }
-
+    get worxBaseId() { return String(this.config.worxBaseId || '').replace(/\.$/, ''); }
     get worxStates() {
         const base = this.worxBaseId;
         return {
-            calJson: `${base}.calendar.calJson`,
-            calJson2: `${base}.calendar.calJson2`,
-            bladeTime: `${base}.mower.totalBladeTime`,
-            area: `${base}.areas.actualArea`,
-            status: `${base}.mower.status`,
-            mowTimeExtend: `${base}.mower.mowTimeExtend`,
+            calJson: `${base}.calendar.calJson`, calJson2: `${base}.calendar.calJson2`,
+            bladeTime: `${base}.mower.totalBladeTime`, area: `${base}.areas.actualArea`,
+            status: `${base}.mower.status`, mowTimeExtend: `${base}.mower.mowTimeExtend`,
         };
     }
 
     async onReady() {
         await this.createObjects();
         await this.restoreRuntime();
-
-        if (!this.worxBaseId) {
-            this.log.error('Keine Worx Basis-Datenpunkt-ID konfiguriert.');
-            return;
-        }
-
-        const states = this.worxStates;
-        const watched = [states.bladeTime, states.area, states.status, states.calJson, states.calJson2];
+        if (!this.worxBaseId) { this.log.error('Keine Worx Basis-Datenpunkt-ID konfiguriert.'); return; }
+        const s = this.worxStates;
+        const watched = [s.bladeTime, s.area, s.status, s.calJson, s.calJson2];
         if (this.config.rainSource === 'state' && this.config.rainState) watched.push(this.config.rainState);
         for (const id of watched.filter(Boolean)) await this.subscribeForeignStatesAsync(id);
-
         await this.refreshCalendarSlots();
         await this.sampleInputs();
         await this.evaluate();
@@ -53,315 +41,86 @@ class Mowtime extends utils.Adapter {
     }
 
     async createObjects() {
-        for (const week of ['actualWeek', 'pastWeek']) {
-            for (let zone = 1; zone <= 4; zone++) {
-                const base = `Results.${week}.zone${zone}`;
-                await this.setObjectNotExistsAsync(`${base}.realMowtime`, { type:'state', common:{ name:'Real mow time', type:'number', role:'value.interval', unit:'min', read:true, write:false }, native:{} });
-                await this.setObjectNotExistsAsync(`${base}.realMowtimePercent`, { type:'state', common:{ name:'Real mow time percent', type:'number', role:'value', unit:'%', read:true, write:false }, native:{} });
-                await this.setObjectNotExistsAsync(`${base}.targetMowtime`, { type:'state', common:{ name:'Target mow time', type:'number', role:'value.interval', unit:'min', read:true, write:false }, native:{} });
-                await this.setObjectNotExistsAsync(`${base}.targetMowtimePercent`, { type:'state', common:{ name:'Target mow time percent', type:'number', role:'value', unit:'%', read:true, write:false }, native:{} });
-            }
+        for (const week of ['actualWeek', 'pastWeek']) for (let zone = 1; zone <= 4; zone++) {
+            const base = `Statistics.${week}.zone${zone}`;
+            await this.setObjectNotExistsAsync(`${base}.realMowtime`, {type:'state',common:{name:'Real mow time',type:'number',role:'value.interval',unit:'min',read:true,write:false},native:{}});
+            await this.setObjectNotExistsAsync(`${base}.realMowtimePercent`, {type:'state',common:{name:'Real mow time percent',type:'number',role:'value',unit:'%',read:true,write:false},native:{}});
+            await this.setObjectNotExistsAsync(`${base}.targetMowtime`, {type:'state',common:{name:'Target mow time',type:'number',role:'value.interval',unit:'min',read:true,write:false},native:{}});
+            await this.setObjectNotExistsAsync(`${base}.targetMowtimePercent`, {type:'state',common:{name:'Target mow time percent',type:'number',role:'value',unit:'%',read:true,write:false},native:{}});
         }
-        for (let i = 0; i < 14; i++) {
-            await this.setObjectNotExistsAsync(`schedule.slot${String(i).padStart(2, '0')}`, {
-                type:'state',
-                common:{ name:`Mähplan Slot ${i + 1}`, type:'string', role:'text', read:true, write:false },
-                native:{}
-            });
-        }
-        await this.setObjectNotExistsAsync('control.MowtimeExtended', { type:'state', common:{ name:'MowtimeExtended', type:'number', role:'level', unit:'%', min:-100, max:100, read:true, write:false }, native:{} });
-        await this.setObjectNotExistsAsync('control.rainLockActive', { type:'state', common:{ name:'Rain lock active', type:'boolean', role:'indicator', read:true, write:false }, native:{} });
-        await this.setObjectNotExistsAsync('control.rainLockedUntil', { type:'state', common:{ name:'Rain locked until', type:'number', role:'value.time', read:true, write:false }, native:{} });
-        await this.setObjectNotExistsAsync('runtime.lastBladeHours', { type:'state', common:{ name:'Last blade hours', type:'number', role:'value', read:true, write:false }, native:{} });
-        await this.setObjectNotExistsAsync('runtime.lastArea', { type:'state', common:{ name:'Last area', type:'number', role:'value', read:true, write:false }, native:{} });
-        await this.setObjectNotExistsAsync('runtime.weekKey', { type:'state', common:{ name:'ISO week key', type:'string', role:'text', read:true, write:false }, native:{} });
-        await this.setObjectNotExistsAsync('runtime.rainReference', { type:'state', common:{ name:'Rain reference', type:'number', role:'value', unit:'mm', read:true, write:false }, native:{} });
-        await this.setObjectNotExistsAsync('runtime.lastRainChange', { type:'state', common:{ name:'Last rain change', type:'number', role:'value.time', read:true, write:false }, native:{} });
-        await this.setObjectNotExistsAsync('runtime.lastWeatherUpdate', { type:'state', common:{ name:'Letzter Wetterabruf', type:'string', role:'text', read:true, write:false }, native:{} });
-        await this.setObjectNotExistsAsync('runtime.weatherStatus', { type:'state', common:{ name:'Status Wetterabruf', type:'string', role:'text', read:true, write:false }, native:{} });
+        for (let i=0;i<14;i++) await this.setObjectNotExistsAsync(`schedule.slot${String(i).padStart(2,'0')}`, {type:'state',common:{name:`Mähplan Slot ${i+1}`,type:'string',role:'text',read:true,write:false},native:{}});
+        await this.setObjectNotExistsAsync('control.MowtimeExtended',{type:'state',common:{name:'MowtimeExtended',type:'number',role:'level',unit:'%',min:-100,max:100,read:true,write:false},native:{}});
+        await this.setObjectNotExistsAsync('control.PossibleMovetimeAll',{type:'state',common:{name:'Gesamte noch verfügbare Mähzeit',type:'number',role:'value.interval',unit:'min',read:true,write:false},native:{}});
+        await this.setObjectNotExistsAsync('control.PossibleMovetimeBase',{type:'state',common:{name:'Noch verfügbare Pflicht-Mähzeit',type:'number',role:'value.interval',unit:'min',read:true,write:false},native:{}});
+        await this.setObjectNotExistsAsync('control.PossibleMovetimeOptional',{type:'state',common:{name:'Noch verfügbare optionale Mähzeit',type:'number',role:'value.interval',unit:'min',read:true,write:false},native:{}});
+        await this.setObjectNotExistsAsync('control.MovetimeDecision',{type:'state',common:{name:'Mähzeit Entscheidung',type:'number',role:'value',states:{0:'Mähzeit erreicht',1:'Freigabe Pflichtzeit',2:'Freigabe optionale Zeit'},min:0,max:2,read:true,write:false},native:{}});
+        await this.setObjectNotExistsAsync('control.rainLockActive',{type:'state',common:{name:'Rain lock active',type:'boolean',role:'indicator',read:true,write:false},native:{}});
+        await this.setObjectNotExistsAsync('control.rainLockedUntil',{type:'state',common:{name:'Rain locked until',type:'number',role:'value.time',read:true,write:false},native:{}});
+        await this.setObjectNotExistsAsync('runtime.lastBladeHours',{type:'state',common:{name:'Last blade hours',type:'number',role:'value',read:true,write:false},native:{}});
+        await this.setObjectNotExistsAsync('runtime.lastArea',{type:'state',common:{name:'Last area',type:'number',role:'value',read:true,write:false},native:{}});
+        await this.setObjectNotExistsAsync('runtime.weekKey',{type:'state',common:{name:'ISO week key',type:'string',role:'text',read:true,write:false},native:{}});
+        await this.setObjectNotExistsAsync('runtime.rainReference',{type:'state',common:{name:'Rain reference',type:'number',role:'value',unit:'mm',read:true,write:false},native:{}});
+        await this.setObjectNotExistsAsync('runtime.lastRainChange',{type:'state',common:{name:'Last rain change',type:'number',role:'value.time',read:true,write:false},native:{}});
+        await this.setObjectNotExistsAsync('runtime.lastWeatherUpdate',{type:'state',common:{name:'Letzter Wetterabruf',type:'string',role:'text',read:true,write:false},native:{}});
+        await this.setObjectNotExistsAsync('runtime.weatherStatus',{type:'state',common:{name:'Status Wetterabruf',type:'string',role:'text',read:true,write:false},native:{}});
     }
 
     async restoreRuntime() {
-        const blade = await this.getStateAsync('runtime.lastBladeHours');
-        const area = await this.getStateAsync('runtime.lastArea');
-        const rain = await this.getStateAsync('runtime.rainReference');
-        const rainChange = await this.getStateAsync('runtime.lastRainChange');
-        this.lastBladeHours = blade && typeof blade.val === 'number' ? blade.val : null;
-        this.lastArea = area && typeof area.val === 'number' ? area.val : null;
-        this.rainReference = rain && typeof rain.val === 'number' ? rain.val : null;
-        this.lastRainChange = rainChange && typeof rainChange.val === 'number' ? rainChange.val : 0;
+        const [blade,area,rain,rainChange]=await Promise.all(['runtime.lastBladeHours','runtime.lastArea','runtime.rainReference','runtime.lastRainChange'].map(id=>this.getStateAsync(id)));
+        this.lastBladeHours=typeof blade?.val==='number'?blade.val:null; this.lastArea=typeof area?.val==='number'?area.val:null;
+        this.rainReference=typeof rain?.val==='number'?rain.val:null; this.lastRainChange=typeof rainChange?.val==='number'?rainChange.val:0;
         await this.rollWeekIfNeeded();
     }
 
-    async onStateChange(id, state) {
+    async onStateChange(id,state) {
         if (!state || !this.worxBaseId) return;
         try {
-            const states = this.worxStates;
-            if (id === states.calJson || id === states.calJson2) await this.refreshCalendarSlots();
-            if (id === states.bladeTime || id === states.area) await this.sampleInputs();
-            if (this.config.rainSource === 'state' && id === this.config.rainState) await this.processRainValue(Number(state.val));
+            const s=this.worxStates;
+            if (id===s.calJson || id===s.calJson2) await this.refreshCalendarSlots();
+            if (id===s.bladeTime || id===s.area) await this.sampleInputs();
+            if (this.config.rainSource==='state' && id===this.config.rainState) await this.processRainValue(Number(state.val));
             await this.evaluate();
-        } catch (e) {
-            this.log.error(e.stack || e.message);
-        }
+        } catch(e){this.log.error(e.stack||e.message);}
     }
 
-    async tick() {
-        await this.rollWeekIfNeeded();
-        await this.sampleInputs();
-        if (this.config.rainSource === 'openmeteo') await this.updateOpenMeteoRain();
-        await this.evaluate();
+    async tick(){await this.rollWeekIfNeeded();await this.sampleInputs();if(this.config.rainSource==='openmeteo')await this.updateOpenMeteoRain();await this.evaluate();}
+    parseCalendar(value){try{const d=typeof value==='string'?JSON.parse(value):value;return Array.isArray(d)&&d.length===7?d:Array(7).fill(['00:00',0,0]);}catch{return Array(7).fill(['00:00',0,0]);}}
+    formatEndTime(start,duration){const [h,m]=String(start||'00:00').split(':').map(Number);const t=((h||0)*60+(m||0)+duration)%1440;return `${String(Math.floor(t/60)).padStart(2,'0')}:${String(t%60).padStart(2,'0')}`;}
+
+    async refreshCalendarSlots(){
+        if(!this.worxBaseId)return;const [a,b]=await Promise.all([this.getForeignStateAsync(this.worxStates.calJson),this.getForeignStateAsync(this.worxStates.calJson2)]);
+        const calendars=[this.parseCalendar(a?.val),this.parseCalendar(b?.val)],days=['So','Mo','Di','Mi','Do','Fr','Sa'];
+        for(let cal=0;cal<2;cal++)for(let rawDay=0;rawDay<7;rawDay++){const raw=calendars[cal][rawDay]||['00:00',0,0],start=String(raw[0]||'00:00'),duration=Math.max(0,Number(raw[1])||0);const text=duration>0?`${days[rawDay]} ${start}–${this.formatEndTime(start,duration)} (${duration} min)`:`${days[rawDay]} – keine Mähzeit`;await this.setStateAsync(`schedule.slot${String(cal*7+rawDay).padStart(2,'0')}`,text,true);}
+    }
+    isMandatory(index){const direct=this.config[`slotMandatory${String(index).padStart(2,'0')}`];if(typeof direct==='boolean')return direct;const legacy=Array.isArray(this.config.mandatorySlots)?this.config.mandatorySlots[index]:false;return !!(legacy?.mandatory??legacy);}
+    async getSlots(){const [a,b]=await Promise.all([this.getForeignStateAsync(this.worxStates.calJson),this.getForeignStateAsync(this.worxStates.calJson2)]),calendars=[this.parseCalendar(a?.val),this.parseCalendar(b?.val)],slots=[];for(let cal=0;cal<2;cal++)for(let rawDay=0;rawDay<7;rawDay++){const raw=calendars[cal][rawDay]||['00:00',0,0],duration=Math.max(0,Number(raw[1])||0),[h,m]=String(raw[0]||'00:00').split(':').map(Number),day=(rawDay+6)%7,index=cal*7+rawDay;slots.push({cal,day,startMinute:(h||0)*60+(m||0),duration,mandatory:this.isMandatory(index)});}return slots;}
+
+    async sampleInputs(){if(!this.worxBaseId)return;const [bs,as]=await Promise.all([this.getForeignStateAsync(this.worxStates.bladeTime),this.getForeignStateAsync(this.worxStates.area)]),blade=Number(bs?.val),area=Number(as?.val);if(!Number.isFinite(blade)||!Number.isInteger(area)||area<0||area>3)return;if(this.lastBladeHours!==null&&blade>=this.lastBladeHours){const delta=(blade-this.lastBladeHours)*60;if(delta>0&&delta<180)await this.addZoneMinutes(area+1,delta);}this.lastBladeHours=blade;this.lastArea=area;await this.setStateAsync('runtime.lastBladeHours',blade,true);await this.setStateAsync('runtime.lastArea',area,true);}
+    async addZoneMinutes(zone,delta){const id=`Statistics.actualWeek.zone${zone}.realMowtime`,current=Number((await this.getStateAsync(id))?.val||0);await this.setStateAsync(id,Math.round((current+delta)*10)/10,true);}
+    getTargets(){return [1,2,3,4].map(z=>Math.max(0,Number(this.config[`zone${z}Target`])||0));}
+    async updateStatistics(){const targets=this.getTargets(),targetTotal=targets.reduce((a,b)=>a+b,0),actual=[];for(let z=1;z<=4;z++)actual.push(Number((await this.getStateAsync(`Statistics.actualWeek.zone${z}.realMowtime`))?.val||0));const actualTotal=actual.reduce((a,b)=>a+b,0);for(let i=0;i<4;i++){const base=`Statistics.actualWeek.zone${i+1}`;await this.setStateAsync(`${base}.targetMowtime`,targets[i],true);await this.setStateAsync(`${base}.targetMowtimePercent`,targetTotal?Math.round(targets[i]/targetTotal*1000)/10:0,true);await this.setStateAsync(`${base}.realMowtimePercent`,actualTotal?Math.round(actual[i]/actualTotal*1000)/10:0,true);}return{targets,actual};}
+
+    futureSlotMinutes(slots,now,filter='all'){const today=(now.getDay()+6)%7,minute=now.getHours()*60+now.getMinutes();let total=0;for(const s of slots){if(s.duration<=0)continue;if(filter==='mandatory'&&!s.mandatory)continue;if(filter==='optional'&&s.mandatory)continue;if(s.day<today)continue;if(s.day>today){total+=s.duration;continue;}const end=s.startMinute+s.duration;if(end<=minute)continue;total+=end-Math.max(minute,s.startMinute);}return total;}
+
+    async evaluate(){
+        if(!this.worxBaseId)return;const {targets,actual}=await this.updateStatistics();const totalRemaining=targets.reduce((sum,t,i)=>sum+Math.max(0,t-actual[i]),0);const slots=await this.getSlots(),now=new Date();
+        const possibleAll=this.futureSlotMinutes(slots,now,'all'),possibleBase=this.futureSlotMinutes(slots,now,'mandatory'),possibleOptional=this.futureSlotMinutes(slots,now,'optional');
+        await this.setStateAsync('control.PossibleMovetimeAll',possibleAll,true);await this.setStateAsync('control.PossibleMovetimeBase',possibleBase,true);await this.setStateAsync('control.PossibleMovetimeOptional',possibleOptional,true);
+        const rainLocked=Date.now()<this.rainLockedUntil;await this.setStateAsync('control.rainLockActive',rainLocked,true);await this.setStateAsync('control.rainLockedUntil',this.rainLockedUntil||0,true);
+        let output=0,decision=1;
+        if(rainLocked||totalRemaining<=0){output=-100;decision=0;}else{const day=(now.getDay()+6)%7,minute=now.getHours()*60+now.getMinutes(),current=slots.filter(s=>s.day===day&&s.duration>0&&minute>=s.startMinute&&minute<s.startMinute+s.duration),currentMandatory=current.some(s=>s.mandatory),currentOptional=current.some(s=>!s.mandatory),optionalNeeded=totalRemaining>possibleBase,status=Number((await this.getForeignStateAsync(this.worxStates.status))?.val),home=status===1;decision=optionalNeeded?2:1;if(home&&currentOptional&&!currentMandatory&&!optionalNeeded)output=-100;}
+        await this.setStateAsync('control.MovetimeDecision',decision,true);await this.setStateAsync('control.MowtimeExtended',output,true);await this.writeMowTimeExtendIfChanged(output);
     }
 
-    parseCalendar(value) {
-        try {
-            const data = typeof value === 'string' ? JSON.parse(value) : value;
-            return Array.isArray(data) && data.length === 7 ? data : Array(7).fill(['00:00', 0, 0]);
-        } catch {
-            return Array(7).fill(['00:00', 0, 0]);
-        }
-    }
+    async writeMowTimeExtendIfChanged(value){const target=Number(value);if(!Number.isFinite(target))return;const state=await this.getForeignStateAsync(this.worxStates.mowTimeExtend),current=Number(state?.val);if(Number.isFinite(current)&&current===target)return;this.log.info(`mowTimeExtend geändert: ${Number.isFinite(current)?current:'unbekannt'}% -> ${target}%`);await this.setForeignStateAsync(this.worxStates.mowTimeExtend,target,false);}
 
-    formatEndTime(start, duration) {
-        const [h, m] = String(start || '00:00').split(':').map(Number);
-        const total = ((h || 0) * 60 + (m || 0) + duration) % 1440;
-        return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
-    }
+    async processRainValue(mm){if(!Number.isFinite(mm))return;const now=Date.now();if(this.rainReference===null){this.rainReference=mm;this.lastRainChange=now;}else if(Math.abs(mm-this.rainReference)>=0.1-1e-9){this.rainReference=mm;this.lastRainChange=now;this.rainLockedUntil=now+Math.max(0,Number(this.config.rainLockHours)||0)*3600000;}if(this.lastRainChange&&now-this.lastRainChange<(Number(this.config.rainLockHours)||0)*3600000)this.rainLockedUntil=Math.max(this.rainLockedUntil,this.lastRainChange+(Number(this.config.rainLockHours)||0)*3600000);await this.setStateAsync('runtime.rainReference',this.rainReference,true);await this.setStateAsync('runtime.lastRainChange',this.lastRainChange,true);}
 
-    async refreshCalendarSlots() {
-        if (!this.worxBaseId) return;
-        const [a, b] = await Promise.all([
-            this.getForeignStateAsync(this.worxStates.calJson),
-            this.getForeignStateAsync(this.worxStates.calJson2),
-        ]);
-        const calendars = [this.parseCalendar(a?.val), this.parseCalendar(b?.val)];
-        const days = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
-        for (let cal = 0; cal < 2; cal++) {
-            for (let rawDay = 0; rawDay < 7; rawDay++) {
-                const raw = calendars[cal][rawDay] || ['00:00', 0, 0];
-                const start = String(raw[0] || '00:00');
-                const duration = Math.max(0, Number(raw[1]) || 0);
-                const text = duration > 0
-                    ? `${days[rawDay]} ${start}–${this.formatEndTime(start, duration)} (${duration} min)`
-                    : `${days[rawDay]} – keine Mähzeit`;
-                const index = cal * 7 + rawDay;
-                await this.setStateAsync(`schedule.slot${String(index).padStart(2, '0')}`, text, true);
-            }
-        }
-    }
+    async updateOpenMeteoRain(){if(this.config.rainSource!=='openmeteo')return;const lat=Number(this.config.latitude),lon=Number(this.config.longitude);if(!Number.isFinite(lat)||!Number.isFinite(lon)||(!lat&&!lon)){await this.setStateAsync('runtime.weatherStatus','Fehler: ungültige Koordinaten',true);return;}try{await this.setStateAsync('runtime.weatherStatus','Abruf läuft',true);const res=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${encodeURIComponent(lat)}&longitude=${encodeURIComponent(lon)}&current=precipitation&timezone=auto`);if(!res.ok)throw new Error(`HTTP ${res.status}`);const json=await res.json(),precipitation=Number(json?.current?.precipitation),now=new Date();await this.setStateAsync('runtime.lastWeatherUpdate',now.toLocaleString('de-DE'),true);await this.setStateAsync('runtime.weatherStatus',Number.isFinite(precipitation)?`OK (${precipitation} mm)`:'OK',true);if(Number.isFinite(precipitation)&&precipitation>=0.1){const ms=now.getTime();this.lastRainChange=ms;this.rainLockedUntil=ms+Math.max(0,Number(this.config.rainLockHours)||0)*3600000;await this.setStateAsync('runtime.lastRainChange',ms,true);}}catch(e){await this.setStateAsync('runtime.weatherStatus',`Fehler: ${e.message}`,true);this.log.warn(`Open-Meteo: ${e.message}`);}}
 
-    isMandatory(index) {
-        const direct = this.config[`slotMandatory${String(index).padStart(2, '0')}`];
-        if (typeof direct === 'boolean') return direct;
-        const legacy = Array.isArray(this.config.mandatorySlots) ? this.config.mandatorySlots[index] : false;
-        return !!(legacy?.mandatory ?? legacy);
-    }
-
-    async getSlots() {
-        const [a, b] = await Promise.all([
-            this.getForeignStateAsync(this.worxStates.calJson),
-            this.getForeignStateAsync(this.worxStates.calJson2),
-        ]);
-        const calendars = [this.parseCalendar(a?.val), this.parseCalendar(b?.val)];
-        const slots = [];
-        for (let cal = 0; cal < 2; cal++) {
-            for (let rawDay = 0; rawDay < 7; rawDay++) {
-                const raw = calendars[cal][rawDay] || ['00:00', 0, 0];
-                const duration = Math.max(0, Number(raw[1]) || 0);
-                const [h, m] = String(raw[0] || '00:00').split(':').map(Number);
-                const day = (rawDay + 6) % 7;
-                const index = cal * 7 + rawDay;
-                slots.push({ cal, day, startMinute:(h || 0) * 60 + (m || 0), duration, mandatory:this.isMandatory(index) });
-            }
-        }
-        return slots;
-    }
-
-    async sampleInputs() {
-        if (!this.worxBaseId) return;
-        const [bladeState, areaState] = await Promise.all([
-            this.getForeignStateAsync(this.worxStates.bladeTime),
-            this.getForeignStateAsync(this.worxStates.area),
-        ]);
-        const blade = Number(bladeState?.val);
-        const area = Number(areaState?.val);
-        if (!Number.isFinite(blade) || !Number.isInteger(area) || area < 0 || area > 3) return;
-        if (this.lastBladeHours !== null && blade >= this.lastBladeHours) {
-            const deltaMinutes = (blade - this.lastBladeHours) * 60;
-            if (deltaMinutes > 0 && deltaMinutes < 180) await this.addZoneMinutes(area + 1, deltaMinutes);
-        }
-        this.lastBladeHours = blade;
-        this.lastArea = area;
-        await this.setStateAsync('runtime.lastBladeHours', blade, true);
-        await this.setStateAsync('runtime.lastArea', area, true);
-    }
-
-    async addZoneMinutes(zone, delta) {
-        const id = `Results.actualWeek.zone${zone}.realMowtime`;
-        const current = Number((await this.getStateAsync(id))?.val || 0);
-        await this.setStateAsync(id, Math.round((current + delta) * 10) / 10, true);
-    }
-
-    getTargets() {
-        return [1, 2, 3, 4].map(z => Math.max(0, Number(this.config[`zone${z}Target`]) || 0));
-    }
-
-    async updateResults() {
-        const targets = this.getTargets();
-        const targetTotal = targets.reduce((a, b) => a + b, 0);
-        const actual = [];
-        for (let z = 1; z <= 4; z++) actual.push(Number((await this.getStateAsync(`Results.actualWeek.zone${z}.realMowtime`))?.val || 0));
-        const actualTotal = actual.reduce((a, b) => a + b, 0);
-        for (let i = 0; i < 4; i++) {
-            const base = `Results.actualWeek.zone${i + 1}`;
-            await this.setStateAsync(`${base}.targetMowtime`, targets[i], true);
-            await this.setStateAsync(`${base}.targetMowtimePercent`, targetTotal ? Math.round(targets[i] / targetTotal * 1000) / 10 : 0, true);
-            await this.setStateAsync(`${base}.realMowtimePercent`, actualTotal ? Math.round(actual[i] / actualTotal * 1000) / 10 : 0, true);
-        }
-        return { targets, actual };
-    }
-
-    async evaluate() {
-        if (!this.worxBaseId) return;
-        const { targets, actual } = await this.updateResults();
-        const totalRemaining = targets.reduce((sum, target, i) => sum + Math.max(0, target - actual[i]), 0);
-        let output = 0;
-        const rainLocked = Date.now() < this.rainLockedUntil;
-        await this.setStateAsync('control.rainLockActive', rainLocked, true);
-        await this.setStateAsync('control.rainLockedUntil', this.rainLockedUntil || 0, true);
-
-        if (rainLocked || totalRemaining <= 0) {
-            output = -100;
-        } else {
-            const slots = await this.getSlots();
-            const now = new Date();
-            const day = (now.getDay() + 6) % 7;
-            const minute = now.getHours() * 60 + now.getMinutes();
-            const current = slots.filter(s => s.day === day && s.duration > 0 && minute >= s.startMinute && minute < s.startMinute + s.duration);
-            const currentMandatory = current.some(s => s.mandatory);
-            const currentOptional = current.some(s => !s.mandatory);
-            const futureMandatoryMinutes = this.futureSlotMinutes(slots, now, true);
-            const optionalNeeded = totalRemaining > futureMandatoryMinutes;
-            const status = Number((await this.getForeignStateAsync(this.worxStates.status))?.val);
-            const home = status === 1;
-            if (home && currentOptional && !currentMandatory && !optionalNeeded) output = -100;
-        }
-
-        await this.setStateAsync('control.MowtimeExtended', output, true);
-        await this.writeMowTimeExtendIfChanged(output);
-    }
-
-    async writeMowTimeExtendIfChanged(value) {
-        const target = Number(value);
-        if (!Number.isFinite(target)) return;
-        const state = await this.getForeignStateAsync(this.worxStates.mowTimeExtend);
-        const current = Number(state?.val);
-        if (Number.isFinite(current) && current === target) return;
-        this.log.info(`mowTimeExtend geändert: ${Number.isFinite(current) ? current : 'unbekannt'}% -> ${target}%`);
-        await this.setForeignStateAsync(this.worxStates.mowTimeExtend, target, false);
-    }
-
-    futureSlotMinutes(slots, now, mandatoryOnly) {
-        const today = (now.getDay() + 6) % 7;
-        const minute = now.getHours() * 60 + now.getMinutes();
-        let total = 0;
-        for (const s of slots) {
-            if (s.duration <= 0 || (mandatoryOnly && !s.mandatory)) continue;
-            if (s.day < today) continue;
-            if (s.day > today) { total += s.duration; continue; }
-            const end = s.startMinute + s.duration;
-            if (end <= minute) continue;
-            total += end - Math.max(minute, s.startMinute);
-        }
-        return total;
-    }
-
-    async processRainValue(mm) {
-        if (!Number.isFinite(mm)) return;
-        const now = Date.now();
-        if (this.rainReference === null) {
-            this.rainReference = mm;
-            this.lastRainChange = now;
-        } else if (Math.abs(mm - this.rainReference) >= 0.1 - 1e-9) {
-            this.rainReference = mm;
-            this.lastRainChange = now;
-            this.rainLockedUntil = now + Math.max(0, Number(this.config.rainLockHours) || 0) * 3600_000;
-        }
-        if (this.lastRainChange && now - this.lastRainChange < (Number(this.config.rainLockHours) || 0) * 3600_000) {
-            this.rainLockedUntil = Math.max(this.rainLockedUntil, this.lastRainChange + (Number(this.config.rainLockHours) || 0) * 3600_000);
-        }
-        await this.setStateAsync('runtime.rainReference', this.rainReference, true);
-        await this.setStateAsync('runtime.lastRainChange', this.lastRainChange, true);
-    }
-
-    async updateOpenMeteoRain() {
-        if (this.config.rainSource !== 'openmeteo') return;
-
-        const lat = Number(this.config.latitude);
-        const lon = Number(this.config.longitude);
-        if (!Number.isFinite(lat) || !Number.isFinite(lon) || (!lat && !lon)) {
-            await this.setStateAsync('runtime.weatherStatus', 'Fehler: ungültige Koordinaten', true);
-            return;
-        }
-
-        try {
-            await this.setStateAsync('runtime.weatherStatus', 'Abruf läuft', true);
-            const url = `https://api.open-meteo.com/v1/forecast?latitude=${encodeURIComponent(lat)}&longitude=${encodeURIComponent(lon)}&current=precipitation&timezone=auto`;
-            const res = await fetch(url);
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            const json = await res.json();
-            const precipitation = Number(json?.current?.precipitation);
-            const now = new Date();
-            await this.setStateAsync('runtime.lastWeatherUpdate', now.toLocaleString('de-DE'), true);
-            await this.setStateAsync('runtime.weatherStatus', Number.isFinite(precipitation) ? `OK (${precipitation} mm)` : 'OK', true);
-
-            if (Number.isFinite(precipitation) && precipitation >= 0.1) {
-                const nowMs = now.getTime();
-                this.lastRainChange = nowMs;
-                this.rainLockedUntil = nowMs + Math.max(0, Number(this.config.rainLockHours) || 0) * 3600_000;
-                await this.setStateAsync('runtime.lastRainChange', nowMs, true);
-            }
-        } catch (e) {
-            await this.setStateAsync('runtime.weatherStatus', `Fehler: ${e.message}`, true);
-            this.log.warn(`Open-Meteo: ${e.message}`);
-        }
-    }
-
-    weekKey(date) {
-        const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-        const day = d.getUTCDay() || 7;
-        d.setUTCDate(d.getUTCDate() + 4 - day);
-        const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-        const week = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
-        return `${d.getUTCFullYear()}-W${String(week).padStart(2, '0')}`;
-    }
-
-    async rollWeekIfNeeded() {
-        const key = this.weekKey(new Date());
-        const old = (await this.getStateAsync('runtime.weekKey'))?.val;
-        if (!old) { await this.setStateAsync('runtime.weekKey', key, true); return; }
-        if (old === key) return;
-        for (let z = 1; z <= 4; z++) {
-            for (const field of ['realMowtime', 'realMowtimePercent', 'targetMowtime', 'targetMowtimePercent']) {
-                const src = Number((await this.getStateAsync(`Results.actualWeek.zone${z}.${field}`))?.val || 0);
-                await this.setStateAsync(`Results.pastWeek.zone${z}.${field}`, src, true);
-            }
-            await this.setStateAsync(`Results.actualWeek.zone${z}.realMowtime`, 0, true);
-            await this.setStateAsync(`Results.actualWeek.zone${z}.realMowtimePercent`, 0, true);
-        }
-        await this.setStateAsync('runtime.weekKey', key, true);
-        await this.updateResults();
-    }
-
-    onUnload(callback) {
-        try {
-            if (this.timer) this.clearInterval(this.timer);
-            callback();
-        } catch {
-            callback();
-        }
-    }
+    weekKey(date){const d=new Date(Date.UTC(date.getFullYear(),date.getMonth(),date.getDate())),day=d.getUTCDay()||7;d.setUTCDate(d.getUTCDate()+4-day);const ys=new Date(Date.UTC(d.getUTCFullYear(),0,1)),week=Math.ceil((((d-ys)/86400000)+1)/7);return `${d.getUTCFullYear()}-W${String(week).padStart(2,'0')}`;}
+    async rollWeekIfNeeded(){const key=this.weekKey(new Date()),old=(await this.getStateAsync('runtime.weekKey'))?.val;if(!old){await this.setStateAsync('runtime.weekKey',key,true);return;}if(old===key)return;for(let z=1;z<=4;z++){for(const field of ['realMowtime','realMowtimePercent','targetMowtime','targetMowtimePercent']){const src=Number((await this.getStateAsync(`Statistics.actualWeek.zone${z}.${field}`))?.val||0);await this.setStateAsync(`Statistics.pastWeek.zone${z}.${field}`,src,true);}await this.setStateAsync(`Statistics.actualWeek.zone${z}.realMowtime`,0,true);await this.setStateAsync(`Statistics.actualWeek.zone${z}.realMowtimePercent`,0,true);}await this.setStateAsync('runtime.weekKey',key,true);await this.updateStatistics();}
+    onUnload(callback){try{if(this.timer)this.clearInterval(this.timer);callback();}catch{callback();}}
 }
 
-if (module.parent) module.exports = options => new Mowtime(options);
-else new Mowtime();
+if(module.parent)module.exports=options=>new Mowtime(options);else new Mowtime();
