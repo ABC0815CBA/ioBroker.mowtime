@@ -71,9 +71,7 @@ class Mowtime extends utils.Adapter {
                     common: { name: 'Real mow time', type: 'number', role: 'value.interval', unit: 'min', min: 0, read: true, write: realWritable },
                     native: {},
                 });
-                if (realWritable) {
-                    await this.extendObjectAsync(`${base}.realMowtime`, { common: { write: true, min: 0 } });
-                }
+                if (realWritable) await this.extendObjectAsync(`${base}.realMowtime`, { common: { write: true, min: 0 } });
                 await this.setObjectNotExistsAsync(`${base}.realMowtimePercent`, { type:'state', common:{ name:'Real mow time percent', type:'number', role:'value', unit:'%', read:true, write:false }, native:{} });
                 await this.setObjectNotExistsAsync(`${base}.targetMowtime`, { type:'state', common:{ name:'Target mow time', type:'number', role:'value.interval', unit:'min', read:true, write:false }, native:{} });
                 await this.setObjectNotExistsAsync(`${base}.targetMowtimePercent`, { type:'state', common:{ name:'Target mow time percent', type:'number', role:'value', unit:'%', read:true, write:false }, native:{} });
@@ -82,9 +80,7 @@ class Mowtime extends utils.Adapter {
 
         for (let i = 0; i < 14; i++) {
             await this.setObjectNotExistsAsync(`schedule.slot${String(i).padStart(2, '0')}`, {
-                type:'state',
-                common:{ name:`Mähplan Slot ${i + 1}`, type:'string', role:'text', read:true, write:false },
-                native:{},
+                type:'state', common:{ name:`Mähplan Slot ${i + 1}`, type:'string', role:'text', read:true, write:false }, native:{},
             });
         }
 
@@ -99,6 +95,7 @@ class Mowtime extends utils.Adapter {
         await this.setObjectNotExistsAsync('runtime.lastBladeHours', { type:'state', common:{ name:'Last blade hours', type:'number', role:'value', read:true, write:false }, native:{} });
         await this.setObjectNotExistsAsync('runtime.lastArea', { type:'state', common:{ name:'Last area', type:'number', role:'value', read:true, write:false }, native:{} });
         await this.setObjectNotExistsAsync('runtime.weekKey', { type:'state', common:{ name:'Mähwochen-Schlüssel', type:'string', role:'text', read:true, write:false }, native:{} });
+        await this.setObjectNotExistsAsync('runtime.weekStartDay', { type:'state', common:{ name:'Aktiver Wochenstart', type:'number', role:'value', min:1, max:7, read:true, write:false }, native:{} });
         await this.setObjectNotExistsAsync('runtime.rainReference', { type:'state', common:{ name:'Rain reference', type:'number', role:'value', unit:'mm', read:true, write:false }, native:{} });
         await this.setObjectNotExistsAsync('runtime.lastRainChange', { type:'state', common:{ name:'Last rain change', type:'number', role:'value.time', read:true, write:false }, native:{} });
         await this.setObjectNotExistsAsync('runtime.lastWeatherUpdate', { type:'state', common:{ name:'Letzter Wetterabruf', type:'string', role:'text', read:true, write:false }, native:{} });
@@ -142,20 +139,22 @@ class Mowtime extends utils.Adapter {
     async onStateChange(id, state) {
         if (!state) return;
         try {
-            const resetId = `${this.namespace}.control.ResetActualWeek`;
-            if (id === resetId && state.val === true) {
+            if (id === `${this.namespace}.control.ResetActualWeek` && state.val === true) {
                 await this.resetActualWeek();
                 await this.setStateAsync('control.ResetActualWeek', false, true);
                 if (this.worxBaseId) await this.evaluate();
                 return;
             }
 
-            const manualMatch = id.match(new RegExp(`^${this.namespace.replace('.', '\\.') }\\.Statistics\\.actualWeek\\.zone([1-4])\\.realMowtime$`));
-            if (manualMatch && !state.ack) {
-                const value = Math.max(0, Number(state.val) || 0);
-                await this.setStateAsync(`Statistics.actualWeek.zone${manualMatch[1]}.realMowtime`, Math.round(value * 10) / 10, true);
-                if (this.worxBaseId) await this.evaluate();
-                else await this.updateStatistics();
+            const prefix = `${this.namespace}.Statistics.actualWeek.zone`;
+            if (id.startsWith(prefix) && id.endsWith('.realMowtime') && !state.ack) {
+                const zone = Number(id.slice(prefix.length).split('.')[0]);
+                if (Number.isInteger(zone) && zone >= 1 && zone <= 4) {
+                    const value = Math.max(0, Number(state.val) || 0);
+                    await this.setStateAsync(`Statistics.actualWeek.zone${zone}.realMowtime`, Math.round(value * 10) / 10, true);
+                    if (this.worxBaseId) await this.evaluate();
+                    else await this.updateStatistics();
+                }
                 return;
             }
 
@@ -205,9 +204,7 @@ class Mowtime extends utils.Adapter {
                 const raw = calendars[cal][rawDay] || ['00:00', 0, 0];
                 const start = String(raw[0] || '00:00');
                 const duration = Math.max(0, Number(raw[1]) || 0);
-                const text = duration > 0
-                    ? `${days[rawDay]} ${start}–${this.formatEndTime(start, duration)} (${duration} min)`
-                    : `${days[rawDay]} – keine Mähzeit`;
+                const text = duration > 0 ? `${days[rawDay]} ${start}–${this.formatEndTime(start, duration)} (${duration} min)` : `${days[rawDay]} – keine Mähzeit`;
                 await this.setStateAsync(`schedule.slot${String(cal * 7 + rawDay).padStart(2, '0')}`, text, true);
             }
         }
@@ -280,9 +277,7 @@ class Mowtime extends utils.Adapter {
         const targets = this.getTargets();
         const targetTotal = targets.reduce((a, b) => a + b, 0);
         const actual = [];
-        for (let z = 1; z <= 4; z++) {
-            actual.push(Math.max(0, Number((await this.getStateAsync(`Statistics.actualWeek.zone${z}.realMowtime`))?.val || 0)));
-        }
+        for (let z = 1; z <= 4; z++) actual.push(Math.max(0, Number((await this.getStateAsync(`Statistics.actualWeek.zone${z}.realMowtime`))?.val || 0)));
         const actualTotal = actual.reduce((a, b) => a + b, 0);
         for (let i = 0; i < 4; i++) {
             const base = `Statistics.actualWeek.zone${i + 1}`;
@@ -310,10 +305,7 @@ class Mowtime extends utils.Adapter {
             if (filter === 'mandatory' && !s.mandatory) continue;
             if (filter === 'optional' && s.mandatory) continue;
             if (s.weekDayIndex < todayIndex) continue;
-            if (s.weekDayIndex > todayIndex) {
-                total += s.duration;
-                continue;
-            }
+            if (s.weekDayIndex > todayIndex) { total += s.duration; continue; }
             const end = s.startMinute + s.duration;
             if (end <= minute) continue;
             total += end - Math.max(minute, s.startMinute);
@@ -423,12 +415,8 @@ class Mowtime extends utils.Adapter {
     weekKey(date) {
         const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
         const isoDay = d.getDay() === 0 ? 7 : d.getDay();
-        const daysSinceStart = (isoDay - this.weekStartDay + 7) % 7;
-        d.setDate(d.getDate() - daysSinceStart);
-        const yyyy = d.getFullYear();
-        const mm = String(d.getMonth() + 1).padStart(2, '0');
-        const dd = String(d.getDate()).padStart(2, '0');
-        return `${yyyy}-${mm}-${dd}`;
+        d.setDate(d.getDate() - ((isoDay - this.weekStartDay + 7) % 7));
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     }
 
     async resetActualWeek() {
@@ -441,12 +429,28 @@ class Mowtime extends utils.Adapter {
 
     async rollWeekIfNeeded() {
         const key = this.weekKey(new Date());
-        const old = (await this.getStateAsync('runtime.weekKey'))?.val;
-        if (!old) {
+        const oldKey = (await this.getStateAsync('runtime.weekKey'))?.val;
+        const storedStart = Number((await this.getStateAsync('runtime.weekStartDay'))?.val);
+
+        if (!Number.isInteger(storedStart) || storedStart < 1 || storedStart > 7) {
+            await this.setStateAsync('runtime.weekStartDay', this.weekStartDay, true);
             await this.setStateAsync('runtime.weekKey', key, true);
             return;
         }
-        if (old === key) return;
+
+        if (storedStart !== this.weekStartDay) {
+            this.log.info(`Wochenstart geändert: ${storedStart} -> ${this.weekStartDay}. Aktuelle Ist-Mähzeiten bleiben erhalten; ResetActualWeek kann für einen manuellen Neustart verwendet werden.`);
+            await this.setStateAsync('runtime.weekStartDay', this.weekStartDay, true);
+            await this.setStateAsync('runtime.weekKey', key, true);
+            return;
+        }
+
+        if (!oldKey) {
+            await this.setStateAsync('runtime.weekKey', key, true);
+            return;
+        }
+        if (oldKey === key) return;
+
         for (let z = 1; z <= 4; z++) {
             for (const field of ['realMowtime', 'realMowtimePercent', 'targetMowtime', 'targetMowtimePercent']) {
                 const src = Number((await this.getStateAsync(`Statistics.actualWeek.zone${z}.${field}`))?.val || 0);
