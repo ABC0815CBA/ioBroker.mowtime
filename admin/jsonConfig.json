@@ -17,41 +17,194 @@
       "text": "Aus dem gewählten Basis-Datenpunkt verwendet der Adapter automatisch die Worx-Unterdatenpunkte für Kalender, Blade-Time, Zone, Status und mowTimeExtend."
     },
 
+    "weekHeader": { "type": "header", "text": "Mähwoche", "size": 2 },
+    "weekStartDay": {
+      "type": "select",
+      "label": "Wochenstart",
+      "help": "Legt fest, an welchem Wochentag um 00:00 Uhr eine neue Mähwoche beginnt. Statistik und verbleibende Mähzeiten werden bis zum Tag vor diesem Wochenstart berechnet.",
+      "options": [
+        { "label": "Montag", "value": 1 },
+        { "label": "Dienstag", "value": 2 },
+        { "label": "Mittwoch", "value": 3 },
+        { "label": "Donnerstag", "value": 4 },
+        { "label": "Freitag", "value": 5 },
+        { "label": "Samstag", "value": 6 },
+        { "label": "Sonntag", "value": 7 }
+      ],
+      "sm": 12,
+      "md": 6
+    },
+    "weekInfo": {
+      "type": "staticText",
+      "text": "Beispiel: Wochenstart Mittwoch bedeutet Mittwoch 00:00 bis Dienstag 23:59. Beim Wechsel wird actualWeek nach pastWeek übernommen und actualWeek zurückgesetzt."
+    },
+
     "slotsHeader": { "type": "header", "text": "Mähplan – Pflichtzeiten", "size": 2 },
     "slotsInfo": {
       "type": "staticText",
-      "text": "Die angezeigten Zeiten werden live aus calJson und calJson2 übernommen. Änderungen durch den Worx-Adapter erscheinen hier automatisch. Gespeichert wird nur, ob der jeweilige Slot Pflicht oder Optional ist."
+      "text": "Die 14 Worx-Zeiträume werden entsprechend dem gewählten Wochenstart sortiert. Gespeichert wird weiterhin die Pflicht/Optional-Zuordnung des echten Worx-Wochentags."
     },
 
-    "slotMandatory00": { "type": "checkbox", "label": "Kalender 1 Sonntag – Pflicht", "sm": 12, "md": 4 },
-    "slotView00": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot00", "sm": 12, "md": 8 },
-    "slotMandatory01": { "type": "checkbox", "label": "Kalender 1 Montag – Pflicht", "sm": 12, "md": 4 },
-    "slotView01": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot01", "sm": 12, "md": 8 },
-    "slotMandatory02": { "type": "checkbox", "label": "Kalender 1 Dienstag – Pflicht", "sm": 12, "md": 4 },
-    "slotView02": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot02", "sm": 12, "md": 8 },
-    "slotMandatory03": { "type": "checkbox", "label": "Kalender 1 Mittwoch – Pflicht", "sm": 12, "md": 4 },
-    "slotView03": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot03", "sm": 12, "md": 8 },
-    "slotMandatory04": { "type": "checkbox", "label": "Kalender 1 Donnerstag – Pflicht", "sm": 12, "md": 4 },
-    "slotView04": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot04", "sm": 12, "md": 8 },
-    "slotMandatory05": { "type": "checkbox", "label": "Kalender 1 Freitag – Pflicht", "sm": 12, "md": 4 },
-    "slotView05": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot05", "sm": 12, "md": 8 },
-    "slotMandatory06": { "type": "checkbox", "label": "Kalender 1 Samstag – Pflicht", "sm": 12, "md": 4 },
-    "slotView06": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot06", "sm": 12, "md": 8 },
+    "_scheduleOrder1": {
+      "type": "panel",
+      "hidden": "data.weekStartDay !== 1",
+      "items": {
+        "slotMandatory01": { "type": "checkbox", "label": "Kalender 1 Montag – Pflicht", "sm": 12, "md": 4 },
+        "_w1v01": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot01", "sm": 12, "md": 8 },
+        "slotMandatory02": { "type": "checkbox", "label": "Kalender 1 Dienstag – Pflicht", "sm": 12, "md": 4 },
+        "_w1v02": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot02", "sm": 12, "md": 8 },
+        "slotMandatory03": { "type": "checkbox", "label": "Kalender 1 Mittwoch – Pflicht", "sm": 12, "md": 4 },
+        "_w1v03": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot03", "sm": 12, "md": 8 },
+        "slotMandatory04": { "type": "checkbox", "label": "Kalender 1 Donnerstag – Pflicht", "sm": 12, "md": 4 },
+        "_w1v04": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot04", "sm": 12, "md": 8 },
+        "slotMandatory05": { "type": "checkbox", "label": "Kalender 1 Freitag – Pflicht", "sm": 12, "md": 4 },
+        "_w1v05": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot05", "sm": 12, "md": 8 },
+        "slotMandatory06": { "type": "checkbox", "label": "Kalender 1 Samstag – Pflicht", "sm": 12, "md": 4 },
+        "_w1v06": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot06", "sm": 12, "md": 8 },
+        "slotMandatory00": { "type": "checkbox", "label": "Kalender 1 Sonntag – Pflicht", "sm": 12, "md": 4 },
+        "_w1v00": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot00", "sm": 12, "md": 8 },
+        "slotMandatory08": { "type": "checkbox", "label": "Kalender 2 Montag – Pflicht", "sm": 12, "md": 4 },
+        "_w1v08": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot08", "sm": 12, "md": 8 },
+        "slotMandatory09": { "type": "checkbox", "label": "Kalender 2 Dienstag – Pflicht", "sm": 12, "md": 4 },
+        "_w1v09": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot09", "sm": 12, "md": 8 },
+        "slotMandatory10": { "type": "checkbox", "label": "Kalender 2 Mittwoch – Pflicht", "sm": 12, "md": 4 },
+        "_w1v10": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot10", "sm": 12, "md": 8 },
+        "slotMandatory11": { "type": "checkbox", "label": "Kalender 2 Donnerstag – Pflicht", "sm": 12, "md": 4 },
+        "_w1v11": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot11", "sm": 12, "md": 8 },
+        "slotMandatory12": { "type": "checkbox", "label": "Kalender 2 Freitag – Pflicht", "sm": 12, "md": 4 },
+        "_w1v12": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot12", "sm": 12, "md": 8 },
+        "slotMandatory13": { "type": "checkbox", "label": "Kalender 2 Samstag – Pflicht", "sm": 12, "md": 4 },
+        "_w1v13": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot13", "sm": 12, "md": 8 },
+        "slotMandatory07": { "type": "checkbox", "label": "Kalender 2 Sonntag – Pflicht", "sm": 12, "md": 4 },
+        "_w1v07": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot07", "sm": 12, "md": 8 }
+      }
+    },
 
-    "slotMandatory07": { "type": "checkbox", "label": "Kalender 2 Sonntag – Pflicht", "sm": 12, "md": 4 },
-    "slotView07": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot07", "sm": 12, "md": 8 },
-    "slotMandatory08": { "type": "checkbox", "label": "Kalender 2 Montag – Pflicht", "sm": 12, "md": 4 },
-    "slotView08": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot08", "sm": 12, "md": 8 },
-    "slotMandatory09": { "type": "checkbox", "label": "Kalender 2 Dienstag – Pflicht", "sm": 12, "md": 4 },
-    "slotView09": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot09", "sm": 12, "md": 8 },
-    "slotMandatory10": { "type": "checkbox", "label": "Kalender 2 Mittwoch – Pflicht", "sm": 12, "md": 4 },
-    "slotView10": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot10", "sm": 12, "md": 8 },
-    "slotMandatory11": { "type": "checkbox", "label": "Kalender 2 Donnerstag – Pflicht", "sm": 12, "md": 4 },
-    "slotView11": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot11", "sm": 12, "md": 8 },
-    "slotMandatory12": { "type": "checkbox", "label": "Kalender 2 Freitag – Pflicht", "sm": 12, "md": 4 },
-    "slotView12": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot12", "sm": 12, "md": 8 },
-    "slotMandatory13": { "type": "checkbox", "label": "Kalender 2 Samstag – Pflicht", "sm": 12, "md": 4 },
-    "slotView13": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot13", "sm": 12, "md": 8 },
+    "_scheduleOrder2": {
+      "type": "panel",
+      "hidden": "data.weekStartDay !== 2",
+      "items": {
+        "slotMandatory02": { "type": "checkbox", "label": "Kalender 1 Dienstag – Pflicht", "sm": 12, "md": 4 }, "_w2v02": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot02", "sm": 12, "md": 8 },
+        "slotMandatory03": { "type": "checkbox", "label": "Kalender 1 Mittwoch – Pflicht", "sm": 12, "md": 4 }, "_w2v03": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot03", "sm": 12, "md": 8 },
+        "slotMandatory04": { "type": "checkbox", "label": "Kalender 1 Donnerstag – Pflicht", "sm": 12, "md": 4 }, "_w2v04": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot04", "sm": 12, "md": 8 },
+        "slotMandatory05": { "type": "checkbox", "label": "Kalender 1 Freitag – Pflicht", "sm": 12, "md": 4 }, "_w2v05": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot05", "sm": 12, "md": 8 },
+        "slotMandatory06": { "type": "checkbox", "label": "Kalender 1 Samstag – Pflicht", "sm": 12, "md": 4 }, "_w2v06": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot06", "sm": 12, "md": 8 },
+        "slotMandatory00": { "type": "checkbox", "label": "Kalender 1 Sonntag – Pflicht", "sm": 12, "md": 4 }, "_w2v00": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot00", "sm": 12, "md": 8 },
+        "slotMandatory01": { "type": "checkbox", "label": "Kalender 1 Montag – Pflicht", "sm": 12, "md": 4 }, "_w2v01": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot01", "sm": 12, "md": 8 },
+        "slotMandatory09": { "type": "checkbox", "label": "Kalender 2 Dienstag – Pflicht", "sm": 12, "md": 4 }, "_w2v09": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot09", "sm": 12, "md": 8 },
+        "slotMandatory10": { "type": "checkbox", "label": "Kalender 2 Mittwoch – Pflicht", "sm": 12, "md": 4 }, "_w2v10": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot10", "sm": 12, "md": 8 },
+        "slotMandatory11": { "type": "checkbox", "label": "Kalender 2 Donnerstag – Pflicht", "sm": 12, "md": 4 }, "_w2v11": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot11", "sm": 12, "md": 8 },
+        "slotMandatory12": { "type": "checkbox", "label": "Kalender 2 Freitag – Pflicht", "sm": 12, "md": 4 }, "_w2v12": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot12", "sm": 12, "md": 8 },
+        "slotMandatory13": { "type": "checkbox", "label": "Kalender 2 Samstag – Pflicht", "sm": 12, "md": 4 }, "_w2v13": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot13", "sm": 12, "md": 8 },
+        "slotMandatory07": { "type": "checkbox", "label": "Kalender 2 Sonntag – Pflicht", "sm": 12, "md": 4 }, "_w2v07": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot07", "sm": 12, "md": 8 },
+        "slotMandatory08": { "type": "checkbox", "label": "Kalender 2 Montag – Pflicht", "sm": 12, "md": 4 }, "_w2v08": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot08", "sm": 12, "md": 8 }
+      }
+    },
+
+    "_scheduleOrder3": {
+      "type": "panel",
+      "hidden": "data.weekStartDay !== 3",
+      "items": {
+        "slotMandatory03": { "type": "checkbox", "label": "Kalender 1 Mittwoch – Pflicht", "sm": 12, "md": 4 }, "_w3v03": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot03", "sm": 12, "md": 8 },
+        "slotMandatory04": { "type": "checkbox", "label": "Kalender 1 Donnerstag – Pflicht", "sm": 12, "md": 4 }, "_w3v04": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot04", "sm": 12, "md": 8 },
+        "slotMandatory05": { "type": "checkbox", "label": "Kalender 1 Freitag – Pflicht", "sm": 12, "md": 4 }, "_w3v05": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot05", "sm": 12, "md": 8 },
+        "slotMandatory06": { "type": "checkbox", "label": "Kalender 1 Samstag – Pflicht", "sm": 12, "md": 4 }, "_w3v06": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot06", "sm": 12, "md": 8 },
+        "slotMandatory00": { "type": "checkbox", "label": "Kalender 1 Sonntag – Pflicht", "sm": 12, "md": 4 }, "_w3v00": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot00", "sm": 12, "md": 8 },
+        "slotMandatory01": { "type": "checkbox", "label": "Kalender 1 Montag – Pflicht", "sm": 12, "md": 4 }, "_w3v01": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot01", "sm": 12, "md": 8 },
+        "slotMandatory02": { "type": "checkbox", "label": "Kalender 1 Dienstag – Pflicht", "sm": 12, "md": 4 }, "_w3v02": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot02", "sm": 12, "md": 8 },
+        "slotMandatory10": { "type": "checkbox", "label": "Kalender 2 Mittwoch – Pflicht", "sm": 12, "md": 4 }, "_w3v10": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot10", "sm": 12, "md": 8 },
+        "slotMandatory11": { "type": "checkbox", "label": "Kalender 2 Donnerstag – Pflicht", "sm": 12, "md": 4 }, "_w3v11": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot11", "sm": 12, "md": 8 },
+        "slotMandatory12": { "type": "checkbox", "label": "Kalender 2 Freitag – Pflicht", "sm": 12, "md": 4 }, "_w3v12": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot12", "sm": 12, "md": 8 },
+        "slotMandatory13": { "type": "checkbox", "label": "Kalender 2 Samstag – Pflicht", "sm": 12, "md": 4 }, "_w3v13": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot13", "sm": 12, "md": 8 },
+        "slotMandatory07": { "type": "checkbox", "label": "Kalender 2 Sonntag – Pflicht", "sm": 12, "md": 4 }, "_w3v07": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot07", "sm": 12, "md": 8 },
+        "slotMandatory08": { "type": "checkbox", "label": "Kalender 2 Montag – Pflicht", "sm": 12, "md": 4 }, "_w3v08": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot08", "sm": 12, "md": 8 },
+        "slotMandatory09": { "type": "checkbox", "label": "Kalender 2 Dienstag – Pflicht", "sm": 12, "md": 4 }, "_w3v09": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot09", "sm": 12, "md": 8 }
+      }
+    },
+
+    "_scheduleOrder4": {
+      "type": "panel",
+      "hidden": "data.weekStartDay !== 4",
+      "items": {
+        "slotMandatory04": { "type": "checkbox", "label": "Kalender 1 Donnerstag – Pflicht", "sm": 12, "md": 4 }, "_w4v04": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot04", "sm": 12, "md": 8 },
+        "slotMandatory05": { "type": "checkbox", "label": "Kalender 1 Freitag – Pflicht", "sm": 12, "md": 4 }, "_w4v05": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot05", "sm": 12, "md": 8 },
+        "slotMandatory06": { "type": "checkbox", "label": "Kalender 1 Samstag – Pflicht", "sm": 12, "md": 4 }, "_w4v06": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot06", "sm": 12, "md": 8 },
+        "slotMandatory00": { "type": "checkbox", "label": "Kalender 1 Sonntag – Pflicht", "sm": 12, "md": 4 }, "_w4v00": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot00", "sm": 12, "md": 8 },
+        "slotMandatory01": { "type": "checkbox", "label": "Kalender 1 Montag – Pflicht", "sm": 12, "md": 4 }, "_w4v01": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot01", "sm": 12, "md": 8 },
+        "slotMandatory02": { "type": "checkbox", "label": "Kalender 1 Dienstag – Pflicht", "sm": 12, "md": 4 }, "_w4v02": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot02", "sm": 12, "md": 8 },
+        "slotMandatory03": { "type": "checkbox", "label": "Kalender 1 Mittwoch – Pflicht", "sm": 12, "md": 4 }, "_w4v03": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot03", "sm": 12, "md": 8 },
+        "slotMandatory11": { "type": "checkbox", "label": "Kalender 2 Donnerstag – Pflicht", "sm": 12, "md": 4 }, "_w4v11": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot11", "sm": 12, "md": 8 },
+        "slotMandatory12": { "type": "checkbox", "label": "Kalender 2 Freitag – Pflicht", "sm": 12, "md": 4 }, "_w4v12": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot12", "sm": 12, "md": 8 },
+        "slotMandatory13": { "type": "checkbox", "label": "Kalender 2 Samstag – Pflicht", "sm": 12, "md": 4 }, "_w4v13": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot13", "sm": 12, "md": 8 },
+        "slotMandatory07": { "type": "checkbox", "label": "Kalender 2 Sonntag – Pflicht", "sm": 12, "md": 4 }, "_w4v07": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot07", "sm": 12, "md": 8 },
+        "slotMandatory08": { "type": "checkbox", "label": "Kalender 2 Montag – Pflicht", "sm": 12, "md": 4 }, "_w4v08": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot08", "sm": 12, "md": 8 },
+        "slotMandatory09": { "type": "checkbox", "label": "Kalender 2 Dienstag – Pflicht", "sm": 12, "md": 4 }, "_w4v09": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot09", "sm": 12, "md": 8 },
+        "slotMandatory10": { "type": "checkbox", "label": "Kalender 2 Mittwoch – Pflicht", "sm": 12, "md": 4 }, "_w4v10": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot10", "sm": 12, "md": 8 }
+      }
+    },
+
+    "_scheduleOrder5": {
+      "type": "panel",
+      "hidden": "data.weekStartDay !== 5",
+      "items": {
+        "slotMandatory05": { "type": "checkbox", "label": "Kalender 1 Freitag – Pflicht", "sm": 12, "md": 4 }, "_w5v05": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot05", "sm": 12, "md": 8 },
+        "slotMandatory06": { "type": "checkbox", "label": "Kalender 1 Samstag – Pflicht", "sm": 12, "md": 4 }, "_w5v06": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot06", "sm": 12, "md": 8 },
+        "slotMandatory00": { "type": "checkbox", "label": "Kalender 1 Sonntag – Pflicht", "sm": 12, "md": 4 }, "_w5v00": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot00", "sm": 12, "md": 8 },
+        "slotMandatory01": { "type": "checkbox", "label": "Kalender 1 Montag – Pflicht", "sm": 12, "md": 4 }, "_w5v01": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot01", "sm": 12, "md": 8 },
+        "slotMandatory02": { "type": "checkbox", "label": "Kalender 1 Dienstag – Pflicht", "sm": 12, "md": 4 }, "_w5v02": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot02", "sm": 12, "md": 8 },
+        "slotMandatory03": { "type": "checkbox", "label": "Kalender 1 Mittwoch – Pflicht", "sm": 12, "md": 4 }, "_w5v03": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot03", "sm": 12, "md": 8 },
+        "slotMandatory04": { "type": "checkbox", "label": "Kalender 1 Donnerstag – Pflicht", "sm": 12, "md": 4 }, "_w5v04": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot04", "sm": 12, "md": 8 },
+        "slotMandatory12": { "type": "checkbox", "label": "Kalender 2 Freitag – Pflicht", "sm": 12, "md": 4 }, "_w5v12": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot12", "sm": 12, "md": 8 },
+        "slotMandatory13": { "type": "checkbox", "label": "Kalender 2 Samstag – Pflicht", "sm": 12, "md": 4 }, "_w5v13": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot13", "sm": 12, "md": 8 },
+        "slotMandatory07": { "type": "checkbox", "label": "Kalender 2 Sonntag – Pflicht", "sm": 12, "md": 4 }, "_w5v07": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot07", "sm": 12, "md": 8 },
+        "slotMandatory08": { "type": "checkbox", "label": "Kalender 2 Montag – Pflicht", "sm": 12, "md": 4 }, "_w5v08": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot08", "sm": 12, "md": 8 },
+        "slotMandatory09": { "type": "checkbox", "label": "Kalender 2 Dienstag – Pflicht", "sm": 12, "md": 4 }, "_w5v09": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot09", "sm": 12, "md": 8 },
+        "slotMandatory10": { "type": "checkbox", "label": "Kalender 2 Mittwoch – Pflicht", "sm": 12, "md": 4 }, "_w5v10": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot10", "sm": 12, "md": 8 },
+        "slotMandatory11": { "type": "checkbox", "label": "Kalender 2 Donnerstag – Pflicht", "sm": 12, "md": 4 }, "_w5v11": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot11", "sm": 12, "md": 8 }
+      }
+    },
+
+    "_scheduleOrder6": {
+      "type": "panel",
+      "hidden": "data.weekStartDay !== 6",
+      "items": {
+        "slotMandatory06": { "type": "checkbox", "label": "Kalender 1 Samstag – Pflicht", "sm": 12, "md": 4 }, "_w6v06": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot06", "sm": 12, "md": 8 },
+        "slotMandatory00": { "type": "checkbox", "label": "Kalender 1 Sonntag – Pflicht", "sm": 12, "md": 4 }, "_w6v00": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot00", "sm": 12, "md": 8 },
+        "slotMandatory01": { "type": "checkbox", "label": "Kalender 1 Montag – Pflicht", "sm": 12, "md": 4 }, "_w6v01": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot01", "sm": 12, "md": 8 },
+        "slotMandatory02": { "type": "checkbox", "label": "Kalender 1 Dienstag – Pflicht", "sm": 12, "md": 4 }, "_w6v02": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot02", "sm": 12, "md": 8 },
+        "slotMandatory03": { "type": "checkbox", "label": "Kalender 1 Mittwoch – Pflicht", "sm": 12, "md": 4 }, "_w6v03": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot03", "sm": 12, "md": 8 },
+        "slotMandatory04": { "type": "checkbox", "label": "Kalender 1 Donnerstag – Pflicht", "sm": 12, "md": 4 }, "_w6v04": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot04", "sm": 12, "md": 8 },
+        "slotMandatory05": { "type": "checkbox", "label": "Kalender 1 Freitag – Pflicht", "sm": 12, "md": 4 }, "_w6v05": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot05", "sm": 12, "md": 8 },
+        "slotMandatory13": { "type": "checkbox", "label": "Kalender 2 Samstag – Pflicht", "sm": 12, "md": 4 }, "_w6v13": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot13", "sm": 12, "md": 8 },
+        "slotMandatory07": { "type": "checkbox", "label": "Kalender 2 Sonntag – Pflicht", "sm": 12, "md": 4 }, "_w6v07": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot07", "sm": 12, "md": 8 },
+        "slotMandatory08": { "type": "checkbox", "label": "Kalender 2 Montag – Pflicht", "sm": 12, "md": 4 }, "_w6v08": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot08", "sm": 12, "md": 8 },
+        "slotMandatory09": { "type": "checkbox", "label": "Kalender 2 Dienstag – Pflicht", "sm": 12, "md": 4 }, "_w6v09": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot09", "sm": 12, "md": 8 },
+        "slotMandatory10": { "type": "checkbox", "label": "Kalender 2 Mittwoch – Pflicht", "sm": 12, "md": 4 }, "_w6v10": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot10", "sm": 12, "md": 8 },
+        "slotMandatory11": { "type": "checkbox", "label": "Kalender 2 Donnerstag – Pflicht", "sm": 12, "md": 4 }, "_w6v11": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot11", "sm": 12, "md": 8 },
+        "slotMandatory12": { "type": "checkbox", "label": "Kalender 2 Freitag – Pflicht", "sm": 12, "md": 4 }, "_w6v12": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot12", "sm": 12, "md": 8 }
+      }
+    },
+
+    "_scheduleOrder7": {
+      "type": "panel",
+      "hidden": "data.weekStartDay !== 7",
+      "items": {
+        "slotMandatory00": { "type": "checkbox", "label": "Kalender 1 Sonntag – Pflicht", "sm": 12, "md": 4 }, "_w7v00": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot00", "sm": 12, "md": 8 },
+        "slotMandatory01": { "type": "checkbox", "label": "Kalender 1 Montag – Pflicht", "sm": 12, "md": 4 }, "_w7v01": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot01", "sm": 12, "md": 8 },
+        "slotMandatory02": { "type": "checkbox", "label": "Kalender 1 Dienstag – Pflicht", "sm": 12, "md": 4 }, "_w7v02": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot02", "sm": 12, "md": 8 },
+        "slotMandatory03": { "type": "checkbox", "label": "Kalender 1 Mittwoch – Pflicht", "sm": 12, "md": 4 }, "_w7v03": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot03", "sm": 12, "md": 8 },
+        "slotMandatory04": { "type": "checkbox", "label": "Kalender 1 Donnerstag – Pflicht", "sm": 12, "md": 4 }, "_w7v04": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot04", "sm": 12, "md": 8 },
+        "slotMandatory05": { "type": "checkbox", "label": "Kalender 1 Freitag – Pflicht", "sm": 12, "md": 4 }, "_w7v05": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot05", "sm": 12, "md": 8 },
+        "slotMandatory06": { "type": "checkbox", "label": "Kalender 1 Samstag – Pflicht", "sm": 12, "md": 4 }, "_w7v06": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot06", "sm": 12, "md": 8 },
+        "slotMandatory07": { "type": "checkbox", "label": "Kalender 2 Sonntag – Pflicht", "sm": 12, "md": 4 }, "_w7v07": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot07", "sm": 12, "md": 8 },
+        "slotMandatory08": { "type": "checkbox", "label": "Kalender 2 Montag – Pflicht", "sm": 12, "md": 4 }, "_w7v08": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot08", "sm": 12, "md": 8 },
+        "slotMandatory09": { "type": "checkbox", "label": "Kalender 2 Dienstag – Pflicht", "sm": 12, "md": 4 }, "_w7v09": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot09", "sm": 12, "md": 8 },
+        "slotMandatory10": { "type": "checkbox", "label": "Kalender 2 Mittwoch – Pflicht", "sm": 12, "md": 4 }, "_w7v10": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot10", "sm": 12, "md": 8 },
+        "slotMandatory11": { "type": "checkbox", "label": "Kalender 2 Donnerstag – Pflicht", "sm": 12, "md": 4 }, "_w7v11": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot11", "sm": 12, "md": 8 },
+        "slotMandatory12": { "type": "checkbox", "label": "Kalender 2 Freitag – Pflicht", "sm": 12, "md": 4 }, "_w7v12": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot12", "sm": 12, "md": 8 },
+        "slotMandatory13": { "type": "checkbox", "label": "Kalender 2 Samstag – Pflicht", "sm": 12, "md": 4 }, "_w7v13": { "type": "state", "label": "Aktuelle Mähzeit", "oid": "schedule.slot13", "sm": 12, "md": 8 }
+      }
+    },
 
     "rainHeader": { "type": "header", "text": "Regensperre", "size": 2 },
     "rainSource": { "type": "select", "label": "Regenquelle", "options": [
@@ -66,7 +219,7 @@
     "zonesHeader": { "type": "header", "text": "Soll-Mähzeiten", "size": 2 },
     "zonesInfo": {
       "type": "staticText",
-      "text": "Nur die Sollzeit je Zone wird vorgegeben. Das Verhältnis der vier Zonen wird automatisch aus diesen Zeiten berechnet und unter Results ausgegeben."
+      "text": "Nur die Sollzeit je Zone wird vorgegeben. Das Verhältnis der vier Zonen wird automatisch aus diesen Zeiten berechnet und unter Statistics ausgegeben. Die Ist-Mähzeiten von actualWeek können in den ioBroker-Objekten manuell korrigiert werden."
     },
     "zone1Target": { "type": "number", "label": "Zone 1 Soll-Mähzeit (min)", "min": 0, "sm": 6, "md": 3 },
     "zone2Target": { "type": "number", "label": "Zone 2 Soll-Mähzeit (min)", "min": 0, "sm": 6, "md": 3 },
