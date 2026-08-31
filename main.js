@@ -11,6 +11,7 @@ class Mowtime extends utils.Adapter {
         this.lastRainChange = 0;
         this.rainLockedUntil = 0;
         this.timer = null;
+        this.writeInProgress = false;
         this.on('ready', this.onReady.bind(this));
         this.on('stateChange', this.onStateChange.bind(this));
         this.on('unload', this.onUnload.bind(this));
@@ -40,7 +41,9 @@ class Mowtime extends utils.Adapter {
     async onReady() {
         await this.createObjects();
         await this.migrateResultsToStatistics();
+        await this.migrateMowtimeControl();
         await this.restoreRuntime();
+        await this.resetWriteCounterIfNeeded();
 
         await this.subscribeStatesAsync('control.ResetActualWeek');
         await this.subscribeStatesAsync('Statistics.actualWeek.zone*.realMowtime');
@@ -56,6 +59,7 @@ class Mowtime extends utils.Adapter {
         for (const id of watched.filter(Boolean)) await this.subscribeForeignStatesAsync(id);
 
         await this.refreshCalendarSlots();
+        await this.initializeMowTimeExtendToWorx();
         await this.sampleInputs();
         await this.evaluate();
         this.timer = this.setInterval(() => this.tick().catch(e => this.log.error(e.stack || e.message)), 60_000);
@@ -84,7 +88,21 @@ class Mowtime extends utils.Adapter {
             });
         }
 
-        await this.setObjectNotExistsAsync('control.MowtimeExtended', { type:'state', common:{ name:'MowtimeExtended', type:'number', role:'level', unit:'%', min:-100, max:100, read:true, write:false }, native:{} });
+        await this.setObjectNotExistsAsync('control.mowTimeExtendActual', {
+            type:'state',
+            common:{ name:'Mowtime-Sollwert aktuell', type:'number', role:'level', unit:'%', min:-100, max:100, read:true, write:false },
+            native:{},
+        });
+        await this.setObjectNotExistsAsync('control.mowTimeExtendToWorx', {
+            type:'state',
+            common:{ name:'Zuletzt an Worx übergebener mowTimeExtend-Wert', type:'number', role:'level', unit:'%', min:-100, max:100, read:true, write:false },
+            native:{},
+        });
+        await this.setObjectNotExistsAsync('control.WriteCounterADay', {
+            type:'state',
+            common:{ name:'Worx Schreibvorgänge heute', type:'number', role:'value', min:0, read:true, write:false },
+            native:{},
+        });
         await this.setObjectNotExistsAsync('control.PossibleMovetimeAll', { type:'state', common:{ name:'Gesamte noch verfügbare Mähzeit', type:'number', role:'value.interval', unit:'min', read:true, write:false }, native:{} });
         await this.setObjectNotExistsAsync('control.PossibleMovetimeBase', { type:'state', common:{ name:'Noch verfügbare Pflicht-Mähzeit', type:'number', role:'value.interval', unit:'min', read:true, write:false }, native:{} });
         await this.setObjectNotExistsAsync('control.PossibleMovetimeOptional', { type:'state', common:{ name:'Noch verfügbare optionale Mähzeit', type:'number', role:'value.interval', unit:'min', read:true, write:false }, native:{} });
@@ -100,6 +118,7 @@ class Mowtime extends utils.Adapter {
         await this.setObjectNotExistsAsync('runtime.lastRainChange', { type:'state', common:{ name:'Last rain change', type:'number', role:'value.time', read:true, write:false }, native:{} });
         await this.setObjectNotExistsAsync('runtime.lastWeatherUpdate', { type:'state', common:{ name:'Letzter Wetterabruf', type:'string', role:'text', read:true, write:false }, native:{} });
         await this.setObjectNotExistsAsync('runtime.weatherStatus', { type:'state', common:{ name:'Status Wetterabruf', type:'string', role:'text', read:true, write:false }, native:{} });
+        await this.setObjectNotExistsAsync('runtime.writeCounterDate', { type:'state', common:{ name:'Datum Schreibzähler', type:'string', role:'text', read:true, write:false }, native:{} });
     }
 
     async migrateResultsToStatistics() {
@@ -122,6 +141,20 @@ class Mowtime extends utils.Adapter {
                     }
                 }
             }
+        }
+    }
+
+    async migrateMowtimeControl() {
+        const oldState = await this.getStateAsync('control.MowtimeExtended');
+        const actualState = await this.getStateAsync('control.mowTimeExtendActual');
+        if (oldState && oldState.val !== null && oldState.val !== undefined && (!actualState || actualState.val === null || actualState.val === undefined)) {
+            await this.setStateAsync('control.mowTimeExtendActual', Number(oldState.val), true);
+        }
+        try {
+            const oldObject = await this.getObjectAsync('control.MowtimeExtended');
+            if (oldObject) await this.delObjectAsync('control.MowtimeExtended');
+        } catch (e) {
+            this.log.debug(`Alter Control-State MowtimeExtended konnte nicht entfernt werden: ${e.message}`);
         }
     }
 
@@ -171,6 +204,7 @@ class Mowtime extends utils.Adapter {
 
     async tick() {
         await this.rollWeekIfNeeded();
+        await this.resetWriteCounterIfNeeded();
         await this.sampleInputs();
         if (this.config.rainSource === 'openmeteo') await this.updateOpenMeteoRain();
         await this.evaluate();
@@ -313,6 +347,34 @@ class Mowtime extends utils.Adapter {
         return total;
     }
 
+    getWriteWindow(slots, now) {
+        const isoDay = this.currentIsoDay(now);
+        const minute = now.getHours() * 60 + now.getMinutes();
+        const active = slots.some(s =>
+            s.isoDay === isoDay &&
+            s.duration > 0 &&
+            minute >= s.startMinute &&
+            minute < s.startMinute + s.duration
+        );
+        if (active) return { active: true, minutesUntilNext: 0 };
+
+        let nextMs = Number.POSITIVE_INFINITY;
+        for (const s of slots) {
+            if (s.duration <= 0) continue;
+            let daysAhead = (s.isoDay - isoDay + 7) % 7;
+            if (daysAhead === 0 && s.startMinute <= minute) daysAhead = 7;
+            const start = new Date(now);
+            start.setSeconds(0, 0);
+            start.setDate(start.getDate() + daysAhead);
+            start.setHours(Math.floor(s.startMinute / 60), s.startMinute % 60, 0, 0);
+            const candidate = start.getTime();
+            if (candidate > now.getTime() && candidate < nextMs) nextMs = candidate;
+        }
+
+        const minutesUntilNext = Number.isFinite(nextMs) ? (nextMs - now.getTime()) / 60_000 : Number.POSITIVE_INFINITY;
+        return { active: false, minutesUntilNext };
+    }
+
     async evaluate() {
         if (!this.worxBaseId) return;
         const { targets, actual } = await this.updateStatistics();
@@ -350,18 +412,63 @@ class Mowtime extends utils.Adapter {
         }
 
         await this.setStateAsync('control.MovetimeDecision', decision, true);
-        await this.setStateAsync('control.MowtimeExtended', output, true);
-        await this.writeMowTimeExtendIfChanged(output);
+        await this.setStateAsync('control.mowTimeExtendActual', output, true);
+
+        const window = this.getWriteWindow(slots, now);
+        if (window.active || window.minutesUntilNext <= 15) {
+            await this.writeMowTimeExtendIfChanged(output);
+        }
+    }
+
+    todayKey(date = new Date()) {
+        return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    }
+
+    async resetWriteCounterIfNeeded() {
+        const today = this.todayKey();
+        const stored = String((await this.getStateAsync('runtime.writeCounterDate'))?.val || '');
+        if (stored !== today) {
+            await this.setStateAsync('control.WriteCounterADay', 0, true);
+            await this.setStateAsync('runtime.writeCounterDate', today, true);
+        } else {
+            const current = await this.getStateAsync('control.WriteCounterADay');
+            if (!current || !Number.isFinite(Number(current.val))) await this.setStateAsync('control.WriteCounterADay', 0, true);
+        }
+    }
+
+    async initializeMowTimeExtendToWorx() {
+        const own = await this.getStateAsync('control.mowTimeExtendToWorx');
+        if (own && Number.isFinite(Number(own.val))) return;
+        const state = await this.getForeignStateAsync(this.worxStates.mowTimeExtend);
+        const current = Number(state?.val);
+        if (Number.isFinite(current)) await this.setStateAsync('control.mowTimeExtendToWorx', current, true);
     }
 
     async writeMowTimeExtendIfChanged(value) {
         const target = Number(value);
-        if (!Number.isFinite(target)) return;
-        const state = await this.getForeignStateAsync(this.worxStates.mowTimeExtend);
-        const current = Number(state?.val);
-        if (Number.isFinite(current) && current === target) return;
-        this.log.info(`mowTimeExtend geändert: ${Number.isFinite(current) ? current : 'unbekannt'}% -> ${target}%`);
-        await this.setForeignStateAsync(this.worxStates.mowTimeExtend, target, false);
+        if (!Number.isFinite(target) || this.writeInProgress) return;
+
+        this.writeInProgress = true;
+        try {
+            await this.resetWriteCounterIfNeeded();
+            const state = await this.getForeignStateAsync(this.worxStates.mowTimeExtend);
+            const current = Number(state?.val);
+
+            if (Number.isFinite(current) && current === target) {
+                const lastSent = Number((await this.getStateAsync('control.mowTimeExtendToWorx'))?.val);
+                if (!Number.isFinite(lastSent)) await this.setStateAsync('control.mowTimeExtendToWorx', current, true);
+                return;
+            }
+
+            this.log.info(`mowTimeExtend an Worx geändert: ${Number.isFinite(current) ? current : 'unbekannt'}% -> ${target}%`);
+            await this.setForeignStateAsync(this.worxStates.mowTimeExtend, target, false);
+            await this.setStateAsync('control.mowTimeExtendToWorx', target, true);
+
+            const counter = Math.max(0, Number((await this.getStateAsync('control.WriteCounterADay'))?.val) || 0);
+            await this.setStateAsync('control.WriteCounterADay', counter + 1, true);
+        } finally {
+            this.writeInProgress = false;
+        }
     }
 
     async processRainValue(mm) {
