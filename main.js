@@ -12,6 +12,7 @@ class Mowtime extends utils.Adapter {
         this.rainLockedUntil = 0;
         this.timer = null;
         this.writeInProgress = false;
+        this.lastSentMowTimeExtend = null;
         this.on('ready', this.onReady.bind(this));
         this.on('stateChange', this.onStateChange.bind(this));
         this.on('unload', this.onUnload.bind(this));
@@ -455,16 +456,20 @@ class Mowtime extends utils.Adapter {
     }
 
     async initializeMowTimeExtendToWorx() {
-        const own = await this.getStateAsync('control.mowTimeExtendToWorx');
-        if (own && Number.isFinite(Number(own.val))) return;
         const state = await this.getForeignStateAsync(this.worxStates.mowTimeExtend);
         const current = Number(state?.val);
-        if (Number.isFinite(current)) await this.setStateAsync('control.mowTimeExtendToWorx', current, true);
+        if (!Number.isFinite(current)) return;
+        this.lastSentMowTimeExtend = current;
+        await this.setStateAsync('control.mowTimeExtendToWorx', current, true);
     }
 
     async writeMowTimeExtendIfChanged(value) {
         const target = Number(value);
         if (!Number.isFinite(target) || this.writeInProgress) return;
+
+        if (Number.isFinite(this.lastSentMowTimeExtend) && this.lastSentMowTimeExtend === target) {
+            return;
+        }
 
         this.writeInProgress = true;
         try {
@@ -473,13 +478,14 @@ class Mowtime extends utils.Adapter {
             const current = Number(state?.val);
 
             if (Number.isFinite(current) && current === target) {
-                const lastSent = Number((await this.getStateAsync('control.mowTimeExtendToWorx'))?.val);
-                if (!Number.isFinite(lastSent)) await this.setStateAsync('control.mowTimeExtendToWorx', current, true);
+                this.lastSentMowTimeExtend = target;
+                await this.setStateAsync('control.mowTimeExtendToWorx', target, true);
                 return;
             }
 
             this.log.info(`mowTimeExtend an Worx geändert: ${Number.isFinite(current) ? current : 'unbekannt'}% -> ${target}%`);
             await this.setForeignStateAsync(this.worxStates.mowTimeExtend, target, false);
+            this.lastSentMowTimeExtend = target;
             await this.setStateAsync('control.mowTimeExtendToWorx', target, true);
 
             const counter = Math.max(0, Number((await this.getStateAsync('control.WriteCounterADay'))?.val) || 0);
