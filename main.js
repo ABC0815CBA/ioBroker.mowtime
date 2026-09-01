@@ -61,6 +61,7 @@ class Mowtime extends utils.Adapter {
         await this.refreshCalendarSlots();
         await this.initializeMowTimeExtendToWorx();
         await this.sampleInputs();
+        if (this.config.rainSource === 'openmeteo') await this.updateOpenMeteoRain();
         await this.evaluate();
         this.timer = this.setInterval(() => this.tick().catch(e => this.log.error(e.stack || e.message)), 60_000);
     }
@@ -103,6 +104,11 @@ class Mowtime extends utils.Adapter {
             common:{ name:'Worx Schreibvorgänge heute', type:'number', role:'value', min:0, read:true, write:false },
             native:{},
         });
+        await this.setObjectNotExistsAsync('control.MowtimeToDo', {
+            type:'state',
+            common:{ name:'Noch zu mähende Gesamtzeit', type:'number', role:'value.interval', unit:'min', min:0, read:true, write:false },
+            native:{},
+        });
         await this.setObjectNotExistsAsync('control.PossibleMovetimeAll', { type:'state', common:{ name:'Gesamte noch verfügbare Mähzeit', type:'number', role:'value.interval', unit:'min', read:true, write:false }, native:{} });
         await this.setObjectNotExistsAsync('control.PossibleMovetimeBase', { type:'state', common:{ name:'Noch verfügbare Pflicht-Mähzeit', type:'number', role:'value.interval', unit:'min', read:true, write:false }, native:{} });
         await this.setObjectNotExistsAsync('control.PossibleMovetimeOptional', { type:'state', common:{ name:'Noch verfügbare optionale Mähzeit', type:'number', role:'value.interval', unit:'min', read:true, write:false }, native:{} });
@@ -110,12 +116,18 @@ class Mowtime extends utils.Adapter {
         await this.setObjectNotExistsAsync('control.ResetActualWeek', { type:'state', common:{ name:'Aktuelle Woche zurücksetzen', type:'boolean', role:'button', read:true, write:true, def:false }, native:{} });
         await this.setObjectNotExistsAsync('control.rainLockActive', { type:'state', common:{ name:'Rain lock active', type:'boolean', role:'indicator', read:true, write:false }, native:{} });
         await this.setObjectNotExistsAsync('control.rainLockedUntil', { type:'state', common:{ name:'Rain locked until', type:'number', role:'value.time', read:true, write:false }, native:{} });
+
         await this.setObjectNotExistsAsync('runtime.lastBladeHours', { type:'state', common:{ name:'Last blade hours', type:'number', role:'value', read:true, write:false }, native:{} });
         await this.setObjectNotExistsAsync('runtime.lastArea', { type:'state', common:{ name:'Last area', type:'number', role:'value', read:true, write:false }, native:{} });
         await this.setObjectNotExistsAsync('runtime.weekKey', { type:'state', common:{ name:'Mähwochen-Schlüssel', type:'string', role:'text', read:true, write:false }, native:{} });
         await this.setObjectNotExistsAsync('runtime.weekStartDay', { type:'state', common:{ name:'Aktiver Wochenstart', type:'number', role:'value', min:1, max:7, read:true, write:false }, native:{} });
         await this.setObjectNotExistsAsync('runtime.rainReference', { type:'state', common:{ name:'Rain reference', type:'number', role:'value', unit:'mm', read:true, write:false }, native:{} });
         await this.setObjectNotExistsAsync('runtime.lastRainChange', { type:'state', common:{ name:'Last rain change', type:'number', role:'value.time', read:true, write:false }, native:{} });
+        await this.setObjectNotExistsAsync('runtime.RainOnlineaDay', {
+            type:'state',
+            common:{ name:'Online Regenmenge heute', type:'number', role:'value.precipitation', unit:'mm', min:0, read:true, write:false },
+            native:{},
+        });
         await this.setObjectNotExistsAsync('runtime.lastWeatherUpdate', { type:'state', common:{ name:'Letzter Wetterabruf', type:'string', role:'text', read:true, write:false }, native:{} });
         await this.setObjectNotExistsAsync('runtime.weatherStatus', { type:'state', common:{ name:'Status Wetterabruf', type:'string', role:'text', read:true, write:false }, native:{} });
         await this.setObjectNotExistsAsync('runtime.writeCounterDate', { type:'state', common:{ name:'Datum Schreibzähler', type:'string', role:'text', read:true, write:false }, native:{} });
@@ -311,7 +323,9 @@ class Mowtime extends utils.Adapter {
         const targets = this.getTargets();
         const targetTotal = targets.reduce((a, b) => a + b, 0);
         const actual = [];
-        for (let z = 1; z <= 4; z++) actual.push(Math.max(0, Number((await this.getStateAsync(`Statistics.actualWeek.zone${z}.realMowtime`))?.val || 0)));
+        for (let z = 1; z <= 4; z++) {
+            actual.push(Math.max(0, Number((await this.getStateAsync(`Statistics.actualWeek.zone${z}.realMowtime`))?.val || 0)));
+        }
         const actualTotal = actual.reduce((a, b) => a + b, 0);
         for (let i = 0; i < 4; i++) {
             const base = `Statistics.actualWeek.zone${i + 1}`;
@@ -339,7 +353,10 @@ class Mowtime extends utils.Adapter {
             if (filter === 'mandatory' && !s.mandatory) continue;
             if (filter === 'optional' && s.mandatory) continue;
             if (s.weekDayIndex < todayIndex) continue;
-            if (s.weekDayIndex > todayIndex) { total += s.duration; continue; }
+            if (s.weekDayIndex > todayIndex) {
+                total += s.duration;
+                continue;
+            }
             const end = s.startMinute + s.duration;
             if (end <= minute) continue;
             total += end - Math.max(minute, s.startMinute);
@@ -385,6 +402,7 @@ class Mowtime extends utils.Adapter {
         const possibleBase = this.futureSlotMinutes(slots, now, 'mandatory');
         const possibleOptional = this.futureSlotMinutes(slots, now, 'optional');
 
+        await this.setStateAsync('control.MowtimeToDo', Math.round(totalRemaining * 10) / 10, true);
         await this.setStateAsync('control.PossibleMovetimeAll', possibleAll, true);
         await this.setStateAsync('control.PossibleMovetimeBase', possibleBase, true);
         await this.setStateAsync('control.PossibleMovetimeOptional', possibleOptional, true);
@@ -499,14 +517,20 @@ class Mowtime extends utils.Adapter {
         }
         try {
             await this.setStateAsync('runtime.weatherStatus', 'Abruf läuft', true);
-            const url = `https://api.open-meteo.com/v1/forecast?latitude=${encodeURIComponent(lat)}&longitude=${encodeURIComponent(lon)}&current=precipitation&timezone=auto`;
+            const url = `https://api.open-meteo.com/v1/forecast?latitude=${encodeURIComponent(lat)}&longitude=${encodeURIComponent(lon)}&current=precipitation&daily=precipitation_sum&forecast_days=1&timezone=auto`;
             const res = await fetch(url);
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const json = await res.json();
             const precipitation = Number(json?.current?.precipitation);
+            const precipitationToday = Number(json?.daily?.precipitation_sum?.[0]);
             const now = new Date();
+
             await this.setStateAsync('runtime.lastWeatherUpdate', now.toLocaleString('de-DE'), true);
             await this.setStateAsync('runtime.weatherStatus', Number.isFinite(precipitation) ? `OK (${precipitation} mm)` : 'OK', true);
+            if (Number.isFinite(precipitationToday)) {
+                await this.setStateAsync('runtime.RainOnlineaDay', Math.max(0, Math.round(precipitationToday * 100) / 100), true);
+            }
+
             if (Number.isFinite(precipitation) && precipitation >= 0.1) {
                 const ms = now.getTime();
                 this.lastRainChange = ms;
