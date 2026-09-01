@@ -517,18 +517,33 @@ class Mowtime extends utils.Adapter {
         }
         try {
             await this.setStateAsync('runtime.weatherStatus', 'Abruf läuft', true);
-            const url = `https://api.open-meteo.com/v1/forecast?latitude=${encodeURIComponent(lat)}&longitude=${encodeURIComponent(lon)}&current=precipitation&daily=precipitation_sum&forecast_days=1&timezone=auto`;
+            const url = `https://api.open-meteo.com/v1/forecast?latitude=${encodeURIComponent(lat)}&longitude=${encodeURIComponent(lon)}&current=precipitation&hourly=precipitation&forecast_days=1&timezone=auto`;
             const res = await fetch(url);
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const json = await res.json();
             const precipitation = Number(json?.current?.precipitation);
-            const precipitationToday = Number(json?.daily?.precipitation_sum?.[0]);
-            const now = new Date();
+            const apiNow = String(json?.current?.time || '');
+            const currentHour = apiNow.length >= 13 ? `${apiNow.slice(0, 13)}:00` : '';
+            const currentDate = apiNow.slice(0, 10);
+            const hourlyTimes = Array.isArray(json?.hourly?.time) ? json.hourly.time : [];
+            const hourlyPrecipitation = Array.isArray(json?.hourly?.precipitation) ? json.hourly.precipitation : [];
+            let precipitationToday = 0;
+            let hourlyValuesFound = false;
 
+            for (let i = 0; i < Math.min(hourlyTimes.length, hourlyPrecipitation.length); i++) {
+                const time = String(hourlyTimes[i] || '');
+                const value = Number(hourlyPrecipitation[i]);
+                if (!currentDate || !currentHour || time.slice(0, 10) !== currentDate || time > currentHour) continue;
+                if (!Number.isFinite(value)) continue;
+                precipitationToday += Math.max(0, value);
+                hourlyValuesFound = true;
+            }
+
+            const now = new Date();
             await this.setStateAsync('runtime.lastWeatherUpdate', now.toLocaleString('de-DE'), true);
             await this.setStateAsync('runtime.weatherStatus', Number.isFinite(precipitation) ? `OK (${precipitation} mm)` : 'OK', true);
-            if (Number.isFinite(precipitationToday)) {
-                await this.setStateAsync('runtime.RainOnlineaDay', Math.max(0, Math.round(precipitationToday * 100) / 100), true);
+            if (hourlyValuesFound) {
+                await this.setStateAsync('runtime.RainOnlineaDay', Math.round(precipitationToday * 100) / 100, true);
             }
 
             if (Number.isFinite(precipitation) && precipitation >= 0.1) {
