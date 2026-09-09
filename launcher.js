@@ -57,6 +57,25 @@ async function updateLocalTimeState(timeZone) {
     await adapter.setStateAsync('runtime.localTime', formatLocalTime(timeZone), true);
 }
 
+// Normale mowTimeExtend-Entscheidungen dürfen nur in den 15 Minuten VOR dem
+// nächsten Mähslot an Worx übertragen werden. Während eines bereits laufenden
+// Slots wird keine normale Freigabe/Sperre mehr nachgeschoben.
+// Ausnahme: Eine aktive Regensperre darf jederzeit sofort -100 % auslösen.
+const originalGetWriteWindow = adapter.getWriteWindow.bind(adapter);
+adapter.getWriteWindow = function getWriteWindowWithRainOverride(slots, now) {
+    const rainLocked = Date.now() < adapter.rainLockedUntil;
+    if (rainLocked) {
+        return { active: true, minutesUntilNext: 0 };
+    }
+
+    const window = originalGetWriteWindow(slots, now);
+    if (window.active) {
+        return { active: false, minutesUntilNext: Number.POSITIVE_INFINITY };
+    }
+
+    return window;
+};
+
 adapter.prependListener('ready', async () => {
     try {
         const timeZone = await detectTimeZone();
